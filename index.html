@@ -640,6 +640,7 @@ async function hydrate(session){
   D.soc=pr.socials||{};
   AR();await loadFeed();R_();go('feed')}
  
+window.__loadFeed=()=>loadFeed();
 async function loadFeed(){
   const q=await sb.from('posts').select('id,user_id,title,image_url,tags,views,created_at').order('created_at',{ascending:false}).limit(80);
   if(q.error){toast('No se pudo cargar el feed');return}
@@ -1239,7 +1240,7 @@ function draw(el){
   const all=p.cm||[],open=OPEN.has(id),list=open?all:all.slice(-2);
   let h='';
   if(all.length>2&&!open)h+='<button type="button" class="vm9" data-k9="more">Ver los '+all.length+' comentarios</button>';
-  h+=list.map(c=>'<div class="cl9"><b>'+E(c.u)+'</b>'+E(c.t)+'</div>').join('');
+  h+=list.map(c=>'<div class="cl9"><b>'+E(c.u)+'</b>'+(window.CT14?CT14(c.t):E(c.t))+'</div>').join('');
   if(all.length>2&&open)h+='<button type="button" class="vm9" data-k9="less">Ocultar comentarios</button>';
   h+='<div class="cw9"><input class="ci9" maxlength="200" placeholder="Añade un comentario…" aria-label="Añade un comentario"><button type="button" class="cp9" data-k9="send">Publicar</button></div>';
   box.innerHTML=h;
@@ -1462,7 +1463,7 @@ const GEAR='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="
 const row=(t,s,a)=>'<button type="button" class="row2" data-s="'+a+'"><b>'+t+'</b><span>'+s+'</span></button>';
 function settings(){
   const role=D.role||'Ambos',hue=D.hue==null?13:D.hue,pf=L('comish_pfeed')!=='off',n=INT.a.length+INT.i.length;
-  M('<h3>Ajustes</h3><small style="opacity:.5">versión 14</small>'+
+  M('<h3>Ajustes</h3><small style="opacity:.5">versión 15</small>'+
     '<div class="sg">Cuenta</div>'+
     row('Editar usuario','@'+E(D.user),'user')+
     '<button type="button" class="row2" data-a="edit"><b>Nombre artístico y descripción</b><span>Cambia cómo te ven los demás</span></button>'+
@@ -1656,4 +1657,583 @@ setInterval(()=>{if(UID&&!document.hidden)refresh14(true)},45000);
 R_();
 })();
 </script>
-<script>console.log("Comish index v14")</script></body></html>
+<!-- ===== v15: animaciones, comentarios estilo Instagram, personalizar chat, subastas ===== -->
+<style>
+/* ---------- Avatares ---------- */
+.a15{display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:50%;background:#8E96B8 center/cover;color:#FFFDF9;font:600 14px Fraunces,serif;width:36px;height:36px;font-style:normal;overflow:hidden}
+.a15.sm{width:26px;height:26px;font-size:11px}
+/* ---------- Animaciones en el feed ---------- */
+.art{position:relative;overflow:hidden}
+.art video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;pointer-events:none}
+.art .bd15{position:absolute;left:10px;top:10px;padding:3px 9px;border-radius:999px;background:rgba(18,18,20,.7);color:#FFFDF9;font:700 11px 'Plus Jakarta Sans',sans-serif;letter-spacing:.5px;z-index:2}
+.art .mt15{position:absolute;right:10px;bottom:10px;width:34px;height:34px;border-radius:50%;background:rgba(18,18,20,.7);color:#FFFDF9;display:flex;align-items:center;justify-content:center;font-size:16px;z-index:2;pointer-events:none}
+.xg div video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+/* ---------- Comentarios (hoja inferior) ---------- */
+.cmt .cw9{display:none!important}
+.cmt::after{content:'Agrega un comentario…';display:block;margin-top:8px;padding:9px 14px;border:1.5px solid #E2D3C2;border-radius:999px;background:#fff;font-size:14px;font-weight:500;opacity:.7;cursor:text}
+#cs15{position:absolute;inset:0;z-index:60;display:none}
+#cs15.on{display:block}
+#cs15 .bk{position:absolute;inset:0;background:rgba(18,18,20,.5)}
+#cs15 .sheet{position:absolute;left:0;right:0;bottom:0;height:78%;background:#FFFDF9;border-radius:24px 24px 0 0;display:flex;flex-direction:column;animation:up15 .22s ease-out}
+@keyframes up15{from{transform:translateY(40%);opacity:.4}to{transform:none;opacity:1}}
+#cs15 .grab{width:42px;height:4px;border-radius:4px;background:#D9CBBB;margin:8px auto 0;flex:none}
+#cs15 .hd{display:flex;align-items:center;justify-content:center;position:relative;padding:10px 16px 12px;border-bottom:1px solid #EADFD3;flex:none}
+#cs15 .hd b{font:600 17px Fraunces,serif}
+#cs15 .hd button{position:absolute;right:12px;top:6px;width:36px;height:36px;border:0;background:none;font-size:18px;cursor:pointer}
+#cs15 .ls{flex:1;overflow-y:auto;padding:12px 16px}
+.c15{display:flex;gap:10px;align-items:flex-start;margin-bottom:16px}
+.c15.r{margin-left:46px}
+.c15 .b{flex:1;min-width:0}
+.c15 p{margin:0;font-size:14px;line-height:1.4;word-break:break-word}
+.c15 p b{font-weight:700;margin-right:5px}
+.c15 .m{display:flex;flex-wrap:wrap;gap:12px;margin-top:4px;font-size:12px;font-weight:600;opacity:.7;align-items:center}
+.c15 .m button{background:none;border:0;padding:0;font:inherit;cursor:pointer;color:inherit}
+.c15 .hl15{width:34px;height:34px;flex:none;border:0;background:none;cursor:pointer;color:#121214;display:flex;align-items:center;justify-content:center;padding:0}
+.c15 .hl15.on{color:#E0414B}.c15 .hl15.on svg{fill:#E0414B}
+.vr15{display:flex;align-items:center;gap:10px;margin:-6px 0 14px 46px;border:0;background:none;font:600 12px 'Plus Jakarta Sans',sans-serif;opacity:.7;cursor:pointer;padding:0;color:#121214}
+.vr15::before{content:'';width:26px;height:1px;background:#121214;opacity:.5}
+.stk15{display:inline-flex;align-items:center;justify-content:center;font-size:54px;line-height:1.1;margin-top:4px}
+.stk15.t{font:800 15px 'Plus Jakarta Sans',sans-serif;padding:8px 14px;border-radius:14px;transform:rotate(-3deg);color:#121214;font-size:16px}
+.stk15.sm{font-size:20px;margin:0 0 0 2px;vertical-align:middle;margin-top:0}
+.stk15.t.sm{font-size:12px;padding:2px 8px;border-radius:8px}
+#cs15 .rp{display:flex;justify-content:space-between;align-items:center;padding:6px 16px;background:#F9D3B4;font-size:13px;font-weight:600;flex:none}
+#cs15 .rp[hidden]{display:none}
+#cs15 .rp button{background:none;border:0;font-size:15px;cursor:pointer}
+#cs15 .qe{display:flex;justify-content:space-between;padding:8px 14px 2px;border-top:1px solid #EADFD3;flex:none}
+#cs15 .qe button{border:0;background:none;font-size:24px;cursor:pointer;padding:2px 4px}
+#cs15 .pk{flex:none;height:210px;border-top:1px solid #EADFD3;background:#fff;display:flex;flex-direction:column}
+#cs15 .pk[hidden]{display:none}
+#cs15 .pt{display:flex;gap:2px;padding:4px 8px;border-bottom:1px solid #EADFD3;overflow-x:auto;flex:none}
+#cs15 .pt button{border:0;background:none;font-size:20px;padding:4px 9px;border-radius:10px;cursor:pointer;flex:none}
+#cs15 .pt button.on{background:#F9D3B4}
+#cs15 .pg{flex:1;overflow-y:auto;padding:6px;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;align-content:start}
+#cs15 .pg button{border:0;background:none;font-size:24px;padding:4px 0;cursor:pointer;border-radius:8px}
+#cs15 .pg.st{grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+#cs15 .pg.st button{background:#FFF3E8;border-radius:14px;min-height:58px;font-size:32px}
+#cs15 .pg.st button.t{font:800 12px 'Plus Jakarta Sans',sans-serif;color:#121214}
+#cs15 .cw{display:flex;align-items:center;gap:8px;padding:8px 12px calc(10px + env(safe-area-inset-bottom,0px));border-top:1px solid #EADFD3;flex:none}
+#cs15 .cw input{flex:1;min-width:0;height:40px;border:1.5px solid #E2D3C2;border-radius:999px;background:#fff;padding:0 14px;font:500 15px 'Plus Jakarta Sans',sans-serif;color:#121214}
+#cs15 .cw .ib{width:36px;height:36px;border:0;background:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#121214;flex:none;padding:0;font-size:22px}
+#cs15 .cw .ib.on{background:#F9D3B4}
+#cs15 .cw .pub{border:0;background:none;font:700 14px 'Plus Jakarta Sans',sans-serif;color:var(--ac);cursor:pointer;opacity:.4;padding:0 4px}
+#cs15 .cw .pub.on{opacity:1}
+/* ---------- Personalizar chat ---------- */
+#chat{background:var(--cbg,#FFFDF9);background-size:cover}
+#chat .cmsg{background:transparent}
+.cmsg .mb,#cp15 .mb{background:var(--bo,#F9D3B4);color:var(--to,#121214);font-family:var(--cf,inherit);font-size:var(--cs,15px);border-radius:var(--cr,18px)}
+.cmsg .mb.me,#cp15 .mb.me{background:var(--bm,var(--ac));color:var(--tm,#121214)}
+#cp15{border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px;min-height:110px;background:var(--cbg,#FFFDF9);background-size:cover;border:1.5px solid #E2D3C2}
+#cp15 .mb{max-width:80%;padding:8px 12px}
+#cp15 .mb.me{align-self:flex-end}
+.sw15{display:flex;flex-wrap:wrap;gap:8px}
+.sw15 button{width:34px;height:34px;border-radius:50%;border:2px solid #E2D3C2;cursor:pointer;padding:0;background-size:cover}
+.sw15 button.on{outline:3px solid #121214;outline-offset:1px}
+.sw15 label.cc{width:34px;height:34px;border-radius:50%;border:2px dashed #121214;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;overflow:hidden;position:relative}
+.sw15 label.cc input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.th15{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px}
+.th15 button{flex:none;width:82px;border:2px solid #E2D3C2;border-radius:14px;padding:6px;background:#fff;cursor:pointer;font:600 11px 'Plus Jakarta Sans',sans-serif;color:#121214}
+.th15 button i{display:block;height:34px;border-radius:8px;margin-bottom:4px;position:relative}
+.th15 button i::before,.th15 button i::after{content:'';position:absolute;height:8px;border-radius:6px;width:55%}
+.th15 button i::before{left:4px;top:5px;background:var(--o)}
+.th15 button i::after{right:4px;bottom:5px;background:var(--m)}
+.ch15{display:flex;flex-wrap:wrap;gap:6px}
+.ch15 button{border:1.5px solid #E2D3C2;background:#fff;border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer;color:#121214}
+.ch15 button.on{background:#121214;color:#FFFDF9;border-color:#121214}
+#sh>*{flex-shrink:0}
+.bs15 .in{min-width:0}.bs15 .in input{width:100%;min-width:0}
+/* ---------- Subastas ---------- */
+#sub .top{padding-bottom:4px}
+.mk15{height:38px;padding:0 16px;border:0;border-radius:999px;background:#121214;color:#FFFDF9;font:700 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.tb15{display:flex;gap:6px;padding:6px 16px 0}
+.tb15 button{flex:1;height:36px;border:0;border-radius:999px;background:#F6EBDD;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;color:#121214}
+.tb15 button.on{background:#121214;color:#FFFDF9}
+.fc15{display:flex;gap:6px;overflow-x:auto;padding:8px 16px 4px;flex:none}
+.fc15 button{flex:none;border:1.5px solid #E2D3C2;background:#fff;border-radius:999px;padding:6px 13px;font:600 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;color:#121214}
+.fc15 button.on{background:var(--ac);border-color:var(--ac)}
+.au15{background:#fff;border:1.5px solid #E2D3C2;border-radius:22px;overflow:hidden;margin-bottom:14px;cursor:pointer}
+.au15 .im{height:190px;background:#F9D3B4 center/cover;position:relative;display:flex;align-items:center;justify-content:center;font-size:54px}
+.au15 .cat{position:absolute;left:10px;top:10px;padding:4px 10px;border-radius:999px;background:rgba(255,253,249,.94);font:700 12px 'Plus Jakarta Sans',sans-serif}
+.au15 .stt{position:absolute;right:10px;top:10px;padding:4px 10px;border-radius:999px;font:700 12px 'Plus Jakarta Sans',sans-serif;background:rgba(255,253,249,.94)}
+.stt.live{background:#2FBF71!important;color:#fff}
+.stt.soon{background:#8E96B8!important;color:#fff}
+.stt.end{background:#121214!important;color:#FFFDF9}
+.au15 .bd{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px}
+.au15 .tt{font:600 18px Fraunces,serif}
+.au15 .bd small{font-size:12.5px;font-weight:500;opacity:.75}
+.au15 .pr15{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-top:2px}
+.au15 .pr15 small{display:block}
+.au15 .pr15 b{font:700 20px 'Plus Jakarta Sans',sans-serif}
+.au15 .pr15 .r{text-align:right}
+.au15 .pr15 .r b{font-size:16px;font-variant-numeric:tabular-nums}
+.au15 .tag{display:inline-block;align-self:flex-start;padding:3px 10px;border-radius:999px;background:#EADFD3;font:700 11.5px 'Plus Jakarta Sans',sans-serif}
+.au15 .tag.win{background:#CFEBD9}.au15 .tag.lose{background:#F7D3CC}
+.dim15{height:230px;border-radius:20px;background:#F9D3B4 center/cover;display:flex;align-items:center;justify-content:center;font-size:64px;flex:none}
+.bx15{background:#fff;border:1.5px solid #E2D3C2;border-radius:18px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.bx15 .l{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.bx15 .l small{font-size:12.5px;font-weight:600;opacity:.7}
+.bx15 .big{font:700 28px 'Plus Jakarta Sans',sans-serif}
+.bx15 .cd{font:700 20px 'Plus Jakarta Sans',sans-serif;font-variant-numeric:tabular-nums}
+.bs15{display:flex;align-items:center;gap:8px}
+.bs15 button.st{width:44px;height:44px;border:0;border-radius:50%;background:#121214;color:#FFFDF9;font:700 22px 'Plus Jakarta Sans',sans-serif;cursor:pointer;flex:none;padding:0}
+.bs15 .in{flex:1;display:flex;align-items:center;border:2px solid #121214;border-radius:14px;background:#fff;padding:0 12px;height:48px}
+.bs15 .in span{font:700 20px 'Plus Jakarta Sans',sans-serif}
+.bs15 .in input{flex:1;min-width:0;border:0;outline:0;background:none;font:700 22px 'Plus Jakarta Sans',sans-serif;padding:0 4px;color:#121214}
+.qk15{display:flex;flex-wrap:wrap;gap:6px}
+.qk15 button{border:1.5px solid #121214;background:transparent;border-radius:999px;padding:6px 12px;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer;color:#121214}
+.bn15{border-radius:14px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.4}
+.bn15.ok{background:#CFEBD9}.bn15.no{background:#F7D3CC}.bn15.in{background:#EADFD3}
+.bh15{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #EADFD3;font-size:14px}
+.bh15:first-child b{color:#1F9D5B}
+.dt15 input[type=datetime-local],.dt15 select,.dt15 textarea{width:100%;border:1.5px solid #E2D3C2;border-radius:14px;background:#fff;padding:12px 14px;font:500 16px 'Plus Jakarta Sans',sans-serif;color:#121214}
+.dt15 textarea{min-height:84px;resize:vertical}
+.sm15{font-size:13px;font-weight:600;background:#FFF3E8;border-radius:12px;padding:9px 12px;line-height:1.45}
+</style>
+<script>
+(()=>{
+if(window.__f15)return;window.__f15=1;
+const sb=window.sb;if(!sb)return;
+const app=document.getElementById('app');
+const L=k=>{try{return localStorage.getItem(k)}catch(e){return null}},W=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+let UID=null;
+sb.auth.getSession().then(({data})=>{UID=data.session&&data.session.user?data.session.user.id:null});
+sb.auth.onAuthStateChange((ev,s)=>{UID=s&&s.user?s.user.id:null});
+const bgu=u=>'url(\''+String(u||'').replace(/'/g,'%27').replace(/"/g,'%22')+'\')';
+const httpsOnly=u=>/^https:\/\//.test(u||'')?u:'';
+const av15=(p,cls)=>{p=p||{};const u=httpsOnly(p.avatar_url),n=(p.display_name||p.username||'?').replace(/^@/,'');
+  return '<i class="a15'+(cls?' '+cls:'')+'"'+(u?' style="background-image:'+bgu(u)+'"':'')+'>'+(u?'':E(n[0].toUpperCase()))+'</i>'};
+const ago=iso=>{const s=Math.max(1,(Date.now()-new Date(iso))/1000);if(s<60)return 'ahora';const m=s/60;if(m<60)return Math.floor(m)+' min';const h=m/60;if(h<24)return Math.floor(h)+' h';const d=h/24;if(d<7)return Math.floor(d)+' d';if(d<30)return Math.floor(d/7)+' sem';return new Date(iso).toLocaleDateString('es')};
+const money=n=>'$'+Number(n||0).toLocaleString('es',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fdate=iso=>new Date(iso).toLocaleString('es',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+
+/* =====================================================================
+   1) ANIMACIONES: GIF, WebP animado y video corto
+   ===================================================================== */
+const isVid=u=>/\.(mp4|webm|mov)(\?|$)/i.test(u||'');
+const isGif=u=>/\.(gif|webp)(\?|$)/i.test(u||'');
+const MAXV=25*1024*1024,MAXG=12*1024*1024;
+const animFile=f=>f&&(/^video\//.test(f.type)||f.type==='image/gif'||f.type==='image/webp');
+const extOf=f=>({'image/gif':'gif','image/webp':'webp','video/mp4':'mp4','video/webm':'webm','video/quicktime':'mov'}[f.type]||'bin');
+
+/* El selector acepta animaciones */
+new MutationObserver(()=>{
+  const i=document.getElementById('xf');if(!i||i.dataset.a15)return;i.dataset.a15=1;
+  i.accept='image/*,video/mp4,video/webm';
+  const t=document.getElementById('fl');if(t)t.textContent='Elegir imagen, GIF o video corto';
+  i.addEventListener('change',()=>{const f=i.files[0];if(f&&t)t.textContent=f.name.length>34?f.name.slice(0,31)+'…':f.name})
+}).observe(document.getElementById('sh'),{childList:true,subtree:true});
+
+/* Publicar animaciones sin recomprimir (si no, se pierde el movimiento) */
+document.addEventListener('click',async e=>{
+  if(!e.target.closest('[data-y="savepub"]'))return;
+  const inp=document.getElementById('xf'),f=inp&&inp.files&&inp.files[0];
+  if(!animFile(f))return;
+  e.stopImmediatePropagation();e.preventDefault();
+  if(!UID)return toast('Inicia sesión para publicar');
+  const t=(document.getElementById('xt').value||'').trim();if(!t)return toast('Escribe un título');
+  const vid=/^video\//.test(f.type);
+  if(f.size>(vid?MAXV:MAXG))return toast('Pesa demasiado: máximo '+(vid?'25':'12')+' MB');
+  const tags=[...document.querySelectorAll('#sh [data-y="pk"].on')].map(s=>s.dataset.t),ex=((document.getElementById('xg')||{}).value||'').trim().toLowerCase().replace(/^#/,'');
+  if(ex&&tags.length<5&&!tags.includes(ex))tags.push(ex);
+  if(!tags.includes('animación'))tags.length<5?tags.push('animación'):0;
+  toast('Subiendo animación…');
+  try{
+    const path=UID+'/posts/'+Date.now()+'.'+extOf(f);
+    const up=await sb.storage.from('media').upload(path,f,{contentType:f.type,cacheControl:'31536000'});
+    if(up.error)throw up.error;
+    const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl;
+    const ins=await sb.from('posts').insert({user_id:UID,title:t.slice(0,60),image_url:url,tags}).select().single();
+    if(ins.error)throw ins.error;
+    X();if(window.__loadFeed)await window.__loadFeed();R_();go('feed');toast('Publicado')
+  }catch(er){toast('No se pudo publicar: '+String((er&&er.message)||er).slice(0,80))}
+},true);
+
+/* Dibujar video / insignias dentro del feed y las cuadrículas */
+const VIO=new IntersectionObserver(es=>es.forEach(e=>{const v=e.target;if(e.isIntersecting&&e.intersectionRatio>.5)v.play().catch(()=>{});else v.pause()}),{threshold:[0,.5,1]});
+function decorate(){
+  document.querySelectorAll('#feed .art[data-id]').forEach(el=>{
+    if(el.dataset.d15)return;const p=D.posts.find(x=>String(x.id)===el.dataset.id);if(!p||!p.u)return;
+    if(isVid(p.u)){el.dataset.d15='v';
+      const v=document.createElement('video');v.src=p.u;v.muted=true;v.loop=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='metadata';
+      el.style.background='#121214';el.textContent='';el.appendChild(v);VIO.observe(v);
+      el.insertAdjacentHTML('beforeend','<span class="bd15">VIDEO</span><span class="mt15" aria-hidden="true">🔇</span>')}
+    else if(isGif(p.u)){el.dataset.d15='g';el.insertAdjacentHTML('beforeend','<span class="bd15">'+(/\.gif/i.test(p.u)?'GIF':'ANIM')+'</span>')}
+    else el.dataset.d15='i'});
+  document.querySelectorAll('.xg div').forEach(d=>{
+    if(d.dataset.d15)return;const m=(d.getAttribute('style')||'').match(/url\(["']?([^"')]+)/);d.dataset.d15='1';
+    if(m&&isVid(m[1])){d.style.background='#121214';const v=document.createElement('video');v.src=m[1];v.muted=true;v.preload='metadata';v.playsInline=true;d.prepend(v)}})}
+let dp=false;
+new MutationObserver(()=>{if(dp)return;dp=true;requestAnimationFrame(()=>{dp=false;decorate()})}).observe(app,{childList:true,subtree:true});
+/* Tocar un video activa o silencia el sonido (no abre el visor de imágenes) */
+document.addEventListener('click',e=>{
+  const a=e.target.closest('#feed .art[data-d15="v"]');if(!a)return;
+  e.stopImmediatePropagation();e.preventDefault();
+  const v=a.querySelector('video');if(!v)return;v.muted=!v.muted;v.play().catch(()=>{});
+  const m=a.querySelector('.mt15');if(m)m.textContent=v.muted?'🔇':'🔊'},true);
+
+/* =====================================================================
+   2) COMENTARIOS estilo Instagram (hoja inferior para celular)
+   ===================================================================== */
+const STK=[['fire','🔥'],['heart','💖'],['star','🌟'],['clap','👏'],['wow','😮'],['lol','😂'],['cry','😭'],['love','😍'],['cool','😎'],['rose','🌹'],['spark','✨'],['rain','🌈'],['cat','😺'],['paw','🐾'],['cake','🍰'],['gift','🎁'],['pal','🎨'],['crown','👑'],['100','💯'],['party','🎉'],['gracias','GRACIAS','#F9D3B4'],['wowt','WOW','#BFE3D0'],['hermoso','HERMOSO','#D9D4F2'],['ame','AMÉ','#FFD6E0'],['top','TOP','#FFE9A8'],['money','TAKE MY $','#CFE6F7']];
+const EMO={'😀':'😀😃😄😁😆😅😂🤣🥲😊😇🙂😉😍🥰😘😋😛😜🤪🤗🤭🤔😎🤩🥳😏😒😞😔😢😭😤😡🥺😱😴🤤','❤️':'❤️🧡💛💚💙💜🖤🤍🤎💖💗💓💕💞💘💝💔❣️💟✨⭐🌟💫🔥💯🎉🎊','👋':'👋🤚✋👌🤌✌️🤞🤟🤘👍👎👏🙌👐🤝🙏💪🫶🫰☝️👆👇👈👉✍️','🐱':'🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🦄🐝🦋🐢🐙🐬🐳🌸🌺🌻🌹🍀🌈','🍕':'🍕🍔🍟🌭🍿🍩🍪🎂🍰🧁🍫🍬🍭🍓🍒🍑🍉🍇🥑🍣🍜☕🧋🍵🥤🍷🍺','🎨':'🎨🖌️🖍️✏️🖊️📝📚🎭🎬🎮🎧🎤🎸🎹📷💻📱⌚💎👑🎁🎀🏆🥇💰🛒📦✈️🚀🌙☀️'};
+const sticker=id=>STK.find(s=>s[0]===id);
+const stkOf=t=>{const m=/^::stk:([a-z0-9]+)::$/.exec(t||'');return m?sticker(m[1]):null};
+const stkHtml=(s,sm)=>s[2]?'<span class="stk15 t'+(sm?' sm':'')+'" style="background:'+s[2]+'">'+E(s[1])+'</span>':'<span class="stk15'+(sm?' sm':'')+'">'+s[1]+'</span>';
+window.CT14=t=>{const s=stkOf(t);return s?stkHtml(s,true):E(t)};
+
+const CS=document.createElement('div');CS.id='cs15';
+CS.innerHTML='<div class="bk" data-c="close"></div><div class="sheet" role="dialog" aria-label="Comentarios"><div class="grab"></div><div class="hd"><b>Comentarios</b><button type="button" data-c="close" aria-label="Cerrar">✕</button></div><div class="ls" id="cs15l"></div><div class="rp" id="cs15r" hidden></div><div class="qe">'+['❤️','🙌','🔥','👏','😢','😍','😮','😂'].map(x=>'<button type="button" data-c="qe" data-e="'+x+'">'+x+'</button>').join('')+'</div><div class="pk" id="cs15p" hidden></div><div class="cw"><span id="cs15a"></span><input id="cs15i" maxlength="200" placeholder="Agrega un comentario…" enterkeyhint="send" autocomplete="off"><button type="button" class="ib" data-c="emo" aria-label="Emojis">☺</button><button type="button" class="ib" data-c="stk" aria-label="Stickers"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8h3a5 5 0 0 1 5 5z"/><path d="M15 4v4a1 1 0 0 0 1 1h4"/><path d="M9 14c1 1 4 1 6 0"/></svg></button><button type="button" class="pub" id="cs15s" data-c="send">Publicar</button></div></div>';
+app.appendChild(CS);
+let CP=null,ROWS=[],PMC={},LKS=[],REPLY=null,OPENR=new Set(),PANEL='';
+const $c=id=>document.getElementById(id);
+const heart='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21C3 14 1 9 1 6a5.5 5.5 0 0 1 11-1.5A5.5 5.5 0 0 1 23 6c0 3-2 8-11 15z"/></svg>';
+const uname=u=>{const p=PMC[u];return p?(p.username||'usuario'):'usuario'};
+
+function renderC(keep){
+  const ls=$c('cs15l'),post=D.posts.find(p=>String(p.id)===String(CP)),sc=ls.scrollTop;
+  const top=ROWS.filter(c=>!c.parent_id),kids={};ROWS.filter(c=>c.parent_id).forEach(c=>{(kids[c.parent_id]=kids[c.parent_id]||[]).push(c)});
+  const lk=id=>LKS.filter(x=>String(x.comment_id)===String(id));
+  const item=(c,r)=>{const p=PMC[c.user_id],l=lk(c.id),me=l.some(x=>x.user_id===UID),s=stkOf(c.body);
+    return '<div class="c15'+(r?' r':'')+'" data-id="'+E(c.id)+'">'+av15(p,r?'sm':'')+'<div class="b"><p><b>'+E(uname(c.user_id))+'</b>'+(s?'':E(c.body))+'</p>'+(s?stkHtml(s):'')+
+      '<div class="m"><span>'+ago(c.created_at)+'</span>'+(l.length?'<span>'+l.length+(l.length==1?' Me gusta':' Me gusta')+'</span>':'')+
+      '<button type="button" data-c="reply" data-id="'+E(r?c.parent_id:c.id)+'" data-u="'+E(uname(c.user_id))+'">Responder</button>'+
+      (c.user_id===UID?'<button type="button" data-c="del" data-id="'+E(c.id)+'">Eliminar</button>':'')+'</div></div>'+
+      '<button type="button" class="hl15'+(me?' on':'')+'" data-c="like" data-id="'+E(c.id)+'" aria-label="Me gusta" aria-pressed="'+me+'">'+heart+'</button></div>'};
+  let h='';
+  if(post)h+='<div class="c15">'+av15({username:(post.by||'').replace(/^@/,''),display_name:post.name,avatar_url:post.av})+'<div class="b"><p><b>'+E((post.by||'').replace(/^@/,''))+'</b>'+E(post.t)+'</p></div></div>';
+  if(!top.length)h+='<p class="emp" style="text-align:center;margin:40px 0 20px">Aún no hay comentarios.<br>Sé la primera persona en comentar.</p>';
+  top.forEach(c=>{h+=item(c,false);const k=kids[c.id]||[];
+    if(k.length){const o=OPENR.has(String(c.id));h+='<button type="button" class="vr15" data-c="tog" data-id="'+E(c.id)+'">'+(o?'Ocultar respuestas':'Ver respuestas ('+k.length+')')+'</button>';if(o)h+=k.map(x=>item(x,true)).join('')}});
+  ls.innerHTML=h;ls.scrollTop=keep?sc:ls.scrollTop}
+
+async function loadC(){
+  const pid=CP;const r=await sb.from('comments').select('*').eq('post_id',pid).order('created_at');
+  if(pid!==CP)return;
+  if(r.error){$c('cs15l').innerHTML='<p class="emp" style="text-align:center">No se pudieron cargar los comentarios.</p>';return}
+  ROWS=r.data||[];const uids=[...new Set(ROWS.map(x=>x.user_id).concat(UID?[UID]:[]))];
+  const [pr,lk]=await Promise.all([uids.length?sb.from('profiles').select('id,username,display_name,avatar_url').in('id',uids):{data:[]},
+    ROWS.length?sb.from('comment_likes').select('comment_id,user_id').in('comment_id',ROWS.map(x=>x.id)):{data:[]}]);
+  if(pid!==CP)return;
+  (pr.data||[]).forEach(p=>PMC[p.id]=p);LKS=lk.error?[]:(lk.data||[]);
+  renderC(false);const ls=$c('cs15l');ls.scrollTop=ls.scrollHeight}
+
+function openCm(pid){
+  CP=pid;REPLY=null;OPENR=new Set();PANEL='';ROWS=[];LKS=[];
+  $c('cs15r').hidden=true;$c('cs15p').hidden=true;$c('cs15i').value='';$c('cs15s').classList.remove('on');
+  document.querySelectorAll('#cs15 .cw .ib').forEach(b=>b.classList.remove('on'));
+  $c('cs15a').innerHTML=av15({username:D.user,display_name:D.name,avatar_url:D.av},'sm');
+  $c('cs15l').innerHTML='<p class="emp" style="text-align:center;margin-top:30px">Cargando…</p>';
+  CS.classList.add('on');loadC()}
+const closeCm=()=>{CS.classList.remove('on');CP=null};
+window.openCm14=openCm;
+
+function setPanel(k){
+  PANEL=PANEL===k?'':k;const pk=$c('cs15p');
+  document.querySelectorAll('#cs15 .cw .ib').forEach(b=>b.classList.toggle('on',b.dataset.c===PANEL));
+  if(!PANEL){pk.hidden=true;return}
+  pk.hidden=false;
+  if(PANEL==='stk'){pk.innerHTML='<div class="pg st">'+STK.map(s=>'<button type="button" data-c="sendstk" data-id="'+s[0]+'" class="'+(s[2]?'t':'')+'" style="'+(s[2]?'background:'+s[2]:'')+'">'+E(s[1])+'</button>').join('')+'</div>';return}
+  const tabs=Object.keys(EMO);pk.innerHTML='<div class="pt">'+tabs.map((t,i)=>'<button type="button" data-c="etab" data-i="'+i+'" class="'+(i?'':'on')+'">'+t+'</button>').join('')+'</div><div class="pg" id="cs15g"></div>';fillEmo(0)}
+function fillEmo(i){const k=Object.keys(EMO)[i],g=$c('cs15g');if(!g)return;
+  g.innerHTML=[...new Intl.Segmenter('es',{granularity:'grapheme'}).segment(EMO[k])].map(s=>s.segment).map(e=>'<button type="button" data-c="ins" data-e="'+e+'">'+e+'</button>').join('')}
+function insertTxt(t){const i=$c('cs15i'),s=i.selectionStart==null?i.value.length:i.selectionStart,e=i.selectionEnd==null?s:i.selectionEnd;
+  if((i.value.slice(0,s)+t+i.value.slice(e)).length>200)return;
+  i.value=i.value.slice(0,s)+t+i.value.slice(e);const c=s+t.length;try{i.setSelectionRange(c,c)}catch(x){}
+  $c('cs15s').classList.toggle('on',!!i.value.trim())}
+
+async function sendC(body){
+  if(!UID)return toast('Inicia sesión para comentar');
+  const v=String(body||'').trim().slice(0,200);if(!v||!CP)return;
+  const row={post_id:CP,user_id:UID,body:v};if(REPLY)row.parent_id=REPLY.id;
+  let r=await sb.from('comments').insert(row).select().single();
+  if(r.error&&REPLY&&/parent_id/i.test(r.error.message||'')){row.body=('@'+REPLY.u+' '+v).slice(0,200);delete row.parent_id;r=await sb.from('comments').insert(row).select().single()}
+  if(r.error)return toast('No se pudo comentar');
+  PMC[UID]=PMC[UID]||{id:UID,username:D.user,display_name:D.name,avatar_url:D.av};
+  ROWS.push(r.data||{id:'tmp'+Date.now(),post_id:CP,user_id:UID,body:row.body,parent_id:row.parent_id,created_at:new Date().toISOString()});
+  if(REPLY)OPENR.add(String(REPLY.id));
+  const p=D.posts.find(x=>String(x.id)===String(CP));
+  if(p){p.cm=p.cm||[];p.cm.push({u:D.name||('@'+D.user),t:row.body,d:new Date().toLocaleString('es')});
+    document.querySelectorAll('#feed .post[data-id="'+CSS.escape(String(CP))+'"] [data-x="cm"] b').forEach(b=>b.textContent=p.cm.length);R_()}
+  const wasReply=!!REPLY;REPLY=null;$c('cs15r').hidden=true;$c('cs15i').value='';$c('cs15s').classList.remove('on');
+  renderC(wasReply);if(!wasReply){const ls=$c('cs15l');ls.scrollTop=ls.scrollHeight}}
+
+CS.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-c]');if(!b)return;const k=b.dataset.c;
+  if(k==='close')return closeCm();
+  if(k==='emo'||k==='stk')return setPanel(k);
+  if(k==='etab'){document.querySelectorAll('#cs15 .pt button').forEach(x=>x.classList.toggle('on',x===b));return fillEmo(+b.dataset.i)}
+  if(k==='ins'||k==='qe'){insertTxt(b.dataset.e);return $c('cs15i').focus()}
+  if(k==='sendstk')return sendC('::stk:'+b.dataset.id+'::');
+  if(k==='send')return sendC($c('cs15i').value);
+  if(k==='tog'){const id=String(b.dataset.id);OPENR.has(id)?OPENR.delete(id):OPENR.add(id);return renderC(true)}
+  if(k==='reply'){REPLY={id:b.dataset.id,u:b.dataset.u};const r=$c('cs15r');r.hidden=false;r.innerHTML='<span>Respondiendo a <b>@'+E(b.dataset.u)+'</b></span><button type="button" data-c="norep" aria-label="Cancelar">✕</button>';
+    const i=$c('cs15i');if(!i.value)insertTxt('@'+b.dataset.u+' ');i.focus();return}
+  if(k==='norep'){REPLY=null;$c('cs15r').hidden=true;return}
+  if(k==='del'){if(!confirm('¿Eliminar este comentario?'))return;const id=b.dataset.id;
+    const r=await sb.from('comments').delete().eq('id',id).eq('user_id',UID);if(r.error)return toast('No se pudo eliminar');
+    const gone=new Set([id]);ROWS.forEach(c=>{if(String(c.parent_id)===String(id))gone.add(String(c.id))});
+    ROWS=ROWS.filter(c=>!gone.has(String(c.id)));const p=D.posts.find(x=>String(x.id)===String(CP));
+    if(p&&p.cm&&p.cm.length){p.cm.pop();document.querySelectorAll('#feed .post[data-id="'+CSS.escape(String(CP))+'"] [data-x="cm"] b').forEach(x=>x.textContent=p.cm.length);R_()}
+    return renderC(true)}
+  if(k==='like'){if(!UID)return toast('Inicia sesión para dar me gusta');const id=b.dataset.id,had=LKS.some(x=>String(x.comment_id)===String(id)&&x.user_id===UID);
+    if(had)LKS=LKS.filter(x=>!(String(x.comment_id)===String(id)&&x.user_id===UID));else LKS.push({comment_id:id,user_id:UID});renderC(true);
+    const r=had?await sb.from('comment_likes').delete().match({comment_id:id,user_id:UID}):await sb.from('comment_likes').insert({comment_id:id,user_id:UID});
+    if(r.error&&!/duplicate/i.test(r.error.message||'')){if(had)LKS.push({comment_id:id,user_id:UID});else LKS=LKS.filter(x=>!(String(x.comment_id)===String(id)&&x.user_id===UID));renderC(true);toast('No se pudo guardar el me gusta (falta ejecutar el SQL de comentarios)')}}
+});
+$c('cs15i').addEventListener('input',e=>$c('cs15s').classList.toggle('on',!!e.target.value.trim()));
+$c('cs15i').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();sendC($c('cs15i').value)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&CS.classList.contains('on'))closeCm()});
+
+/* Todo lo que antes abría comentarios en el inicio ahora abre la hoja */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('#feed [data-x="cm"],#feed .cmt');if(!t)return;
+  const post=t.closest('.post');if(!post)return;
+  e.stopImmediatePropagation();e.preventDefault();openCm(post.dataset.id)},true);
+
+/* =====================================================================
+   3) PERSONALIZAR EL CHAT
+   ===================================================================== */
+const fl=document.createElement('link');fl.rel='stylesheet';fl.href='https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Lora:wght@500;600&family=Nunito:wght@500;700&family=Pacifico&family=Space+Mono:wght@400;700&display=swap';document.head.appendChild(fl);
+const FONTS=[['Normal',''],['Suave','Nunito,sans-serif'],['Clásica','Lora,serif'],['Elegante','Fraunces,serif'],['Manuscrita','Caveat,cursive'],['Cursiva','Pacifico,cursive'],['Máquina','Space Mono,monospace']];
+const SIZES=[['S','13.5px'],['M','15px'],['L','17px'],['XL','19.5px']];
+const SHAPES=[['Redonda','18px'],['Suave','12px'],['Cuadrada','4px'],['Nube','26px']];
+const BGS=[['Crema','#FFFDF9'],['Durazno','#FDE7D6'],['Menta','#DDEFE3'],['Lavanda','#E6E1F7'],['Cielo','#DCEBF7'],['Rosa','#FBDDE6'],['Noche','#1C1B22'],['Atardecer','linear-gradient(160deg,#FDE3C8,#F7B7C4 55%,#B9B4E8)'],['Océano','linear-gradient(160deg,#CDEFF0,#9CC9EC 60%,#8E9AE0)'],['Bosque','linear-gradient(160deg,#DFF0D8,#A9D4B5 60%,#6FB3A0)'],['Puntos','radial-gradient(#E3CFB8 1.6px,transparent 1.7px) 0 0/18px 18px,#FFFDF9'],['Cuadros','linear-gradient(#EFE3D4 1px,transparent 1px) 0 0/22px 22px,linear-gradient(90deg,#EFE3D4 1px,transparent 1px) 0 0/22px 22px,#FFFDF9']];
+const BUB=['#DE7457','#E8788F','#3E7CB1','#8E7CF0','#2FA37A','#121214','#F2B84B','#FFFFFF'];
+const OBUB=['#F9D3B4','#FFFFFF','#EADFD3','#D9D4F2','#CFEBD9','#CFE6F7','#2E2D3A','#FFD6E0'];
+const THEMES=[['Clásico',{}],['Atardecer',{bg:BGS[7][1],bm:'#E8788F',tm:'#FFFFFF',bo:'#FFFFFF',to:'#121214'}],['Océano',{bg:BGS[8][1],bm:'#3E7CB1',tm:'#FFFFFF',bo:'#FFFFFF',to:'#121214'}],['Noche',{bg:'#1C1B22',bm:'#8E7CF0',tm:'#FFFFFF',bo:'#2E2D3A',to:'#F2F0FA'}],['Menta',{bg:BGS[9][1],bm:'#2FA37A',tm:'#FFFFFF',bo:'#FFFFFF',to:'#121214'}],['Kawaii',{bg:BGS[5][1],bm:'#E8788F',tm:'#FFFFFF',bo:'#FFFFFF',to:'#121214',font:'Pacifico,cursive',shape:'26px'}]];
+let CT={};try{CT=JSON.parse(L('comish_chat_theme')||'{}')||{}}catch(e){CT={}}
+const lum=h=>{const m=/^#?([0-9a-f]{6})$/i.exec(h||'');if(!m)return 1;const n=parseInt(m[1],16),r=n>>16,g=n>>8&255,b=n&255;return (0.299*r+0.587*g+0.114*b)/255};
+function applyVars(el,t){
+  const set=(k,v)=>v?el.style.setProperty(k,v):el.style.removeProperty(k);
+  set('--cbg',t.bg);set('--bm',t.bm);set('--bo',t.bo);
+  set('--tm',t.tm||(t.bm?(lum(t.bm)>.6?'#121214':'#FFFFFF'):''));
+  set('--to',t.to||(t.bo?(lum(t.bo)>.6?'#121214':'#FFFFFF'):''));
+  set('--cf',t.font);set('--cs',t.size);set('--cr',t.shape)}
+const applyChat=()=>applyVars(document.getElementById('chat'),CT);
+const saveCT=()=>{W('comish_chat_theme',JSON.stringify(CT));applyChat();const p=document.getElementById('cp15');if(p)applyVars(p,CT)};
+applyChat();
+{const hb=document.querySelector('#chat .ch [data-q="hidecur"]');
+ if(hb&&!document.getElementById('cthm')){const b=document.createElement('button');b.id='cthm';b.className='cb';b.type='button';b.dataset.v15='chtheme';b.title='Personalizar chat';b.setAttribute('aria-label','Personalizar chat');
+  b.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14.5" cy="7" r="1"/></svg>';
+  b.style.marginLeft='auto';hb.style.marginLeft='0';hb.before(b)}}
+function chatModal(){
+  const sw=(arr,key,cur)=>arr.map(c=>'<button type="button" data-v15="ct" data-k="'+key+'" data-v="'+E(c)+'" class="'+(cur===c?'on':'')+'" style="background:'+c+'" aria-label="'+c+'"></button>').join('');
+  M('<h3>Personalizar chat</h3><div id="cp15"><div class="mb">Hola, ¿cómo vas con mi encargo? 😊</div><div class="mb me">¡Ya casi está listo!</div><div class="mb">Genial, gracias ✨</div></div>'+
+   '<div class="sg">Temas rápidos</div><div class="th15">'+THEMES.map((t,i)=>'<button type="button" data-v15="theme" data-i="'+i+'"><i style="background:'+(t[1].bg||'#FFFDF9')+';--o:'+(t[1].bo||'#F9D3B4')+';--m:'+(t[1].bm||'#DE7457')+'"></i>'+t[0]+'</button>').join('')+'</div>'+
+   '<div class="sg">Fondo</div><div class="sw15" id="sw-bg">'+BGS.map(b=>'<button type="button" data-v15="ct" data-k="bg" data-v="'+E(b[1])+'" title="'+b[0]+'" style="background:'+b[1]+'"></button>').join('')+
+   '<label class="cc" title="Color a elección">🎨<input type="color" data-v15="cc" data-k="bg" value="#fffdf9"></label><label class="cc" title="Usar una foto">🖼️<input type="file" accept="image/*" id="ctbgf"></label></div>'+
+   '<div class="sg">Burbuja mía</div><div class="sw15">'+sw(BUB,'bm',CT.bm)+'<label class="cc" title="Color a elección">🎨<input type="color" data-v15="cc" data-k="bm" value="#de7457"></label></div>'+
+   '<div class="sg">Burbuja de la otra persona</div><div class="sw15">'+sw(OBUB,'bo',CT.bo)+'<label class="cc" title="Color a elección">🎨<input type="color" data-v15="cc" data-k="bo" value="#f9d3b4"></label></div>'+
+   '<div class="sg">Fuente</div><div class="ch15">'+FONTS.map(f=>'<button type="button" data-v15="ct" data-k="font" data-v="'+E(f[1])+'" style="font-family:'+(f[1]||'inherit')+'" class="'+((CT.font||'')===f[1]?'on':'')+'">'+f[0]+'</button>').join('')+'</div>'+
+   '<div class="sg">Tamaño del texto</div><div class="ch15">'+SIZES.map(f=>'<button type="button" data-v15="ct" data-k="size" data-v="'+f[1]+'" class="'+((CT.size||'15px')===f[1]?'on':'')+'">'+f[0]+'</button>').join('')+'</div>'+
+   '<div class="sg">Forma de las burbujas</div><div class="ch15">'+SHAPES.map(f=>'<button type="button" data-v15="ct" data-k="shape" data-v="'+f[1]+'" class="'+((CT.shape||'18px')===f[1]?'on':'')+'">'+f[0]+'</button>').join('')+'</div>'+
+   '<p class="cp" style="margin:0">Se guarda en este dispositivo y solo cambia cómo ves tú los chats.</p>'+
+   '<button type="button" class="pb2" data-a="x">Listo</button><button type="button" class="sx" data-v15="ctreset">Restablecer todo</button>');
+  applyVars(document.getElementById('cp15'),CT);
+  document.querySelectorAll('#sh [data-v15="ct"]').forEach(b=>{const k=b.dataset.k;if(k==='bg'&&b.dataset.v===CT.bg)b.classList.add('on')})}
+document.addEventListener('change',e=>{
+  const i=e.target;
+  if(i.dataset&&i.dataset.v15==='cc'){CT[i.dataset.k]=i.value;if(i.dataset.k==='bm')delete CT.tm;if(i.dataset.k==='bo')delete CT.to;saveCT()}
+  if(i.id==='ctbgf'&&i.files[0])rd(i.files[0],u=>{if(!u)return toast('No se pudo leer la imagen');CT.bg='url(\''+u+'\') center/cover';saveCT();toast('Fondo aplicado')},900)});
+document.addEventListener('input',e=>{const i=e.target;if(i.dataset&&i.dataset.v15==='cc'){CT[i.dataset.k]=i.value;if(i.dataset.k==='bm')delete CT.tm;if(i.dataset.k==='bo')delete CT.to;saveCT()}});
+
+/* =====================================================================
+   4) SUBASTAS
+   ===================================================================== */
+const CATS=[['YCH','🎟️','YCH (Your Character Here)'],['Personaje','🧑‍🎨','Personaje / OC'],['Derechos de autor','©️','Derechos de autor'],['Uso comercial','💼','Uso comercial / licencia'],['Comisión','✏️','Oferta de comisión']];
+const catIcon=c=>(CATS.find(x=>x[0]===c)||['','🎨'])[1];
+let AU=[],APM={},MYB=new Set(),TAB='live',FIL='Todas',DET=null,DSIG='',BIDV=0,SQLMISS=false,AUT=0;
+const state=a=>{const n=Date.now(),s=+new Date(a.starts_at),e=+new Date(a.ends_at);return n<s?'soon':n<e?'live':'end'};
+const minBid=a=>a.current_bid==null?+a.start_price:+a.current_bid+ +a.min_increment;
+const uA=id=>{const p=APM[id];return p?'@'+p.username:'@usuario'};
+const dur=ms=>{ms=Math.max(0,ms);const s=Math.floor(ms/1000),d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),x=s%60,p=n=>String(n).padStart(2,'0');return d>0?d+'d '+p(h)+'h '+p(m)+'m':p(h)+':'+p(m)+':'+p(x)};
+
+const SUB=document.createElement('section');SUB.id='sub';SUB.className='s';
+SUB.innerHTML='<div class="top"><div style="font:600 28px Fraunces,serif">Subastas</div><button type="button" class="mk15" data-s15="new">+ Crear</button></div>'+
+ '<div class="tb15"><button type="button" data-s15="tab" data-t="live" class="on">En vivo</button><button type="button" data-s15="tab" data-t="soon">Próximas</button><button type="button" data-s15="tab" data-t="end">Finalizadas</button><button type="button" data-s15="tab" data-t="mine">Mías</button></div>'+
+ '<div class="fc15" id="sub15f"></div><div class="fd" id="sub15l"></div>';
+{const nv=document.querySelector('#msgs nav');if(nv){const n=nv.cloneNode(true);n.querySelectorAll('.nv').forEach(b=>b.classList.remove('on'));
+  [...n.querySelectorAll('.nv')].find(b=>/Subastas/.test(b.textContent)).classList.add('on');
+  n.querySelectorAll('[data-g]').forEach(b=>b.onclick=()=>{const g=b.dataset.g;if(g==='soon'){if(/Subastas/.test(b.textContent))return;const p=document.querySelector('#feed .plus');if(p)p.click()}else go(g)});
+  SUB.appendChild(n)}}
+app.insertBefore(SUB,document.getElementById('feed'));
+
+document.addEventListener('click',e=>{const b=e.target.closest('nav [data-g="soon"]');if(!b||!/Subastas/.test(b.textContent)||b.closest('#sub'))return;
+  e.stopImmediatePropagation();e.preventDefault();openSub()},true);
+
+function renderF(){
+  document.getElementById('sub15f').innerHTML=['Todas',...CATS.map(c=>c[0])].map(c=>'<button type="button" data-s15="fil" data-c="'+E(c)+'" class="'+(FIL===c?'on':'')+'">'+(c==='Todas'?'Todas':catIcon(c)+' '+c)+'</button>').join('')}
+function visible(){
+  return AU.filter(a=>(FIL==='Todas'||a.category===FIL)&&(TAB==='mine'?(a.seller_id===UID||MYB.has(a.id)):state(a)===TAB))
+    .sort((a,b)=>TAB==='end'||TAB==='mine'?+new Date(b.ends_at)-+new Date(a.ends_at):TAB==='soon'?+new Date(a.starts_at)-+new Date(b.starts_at):+new Date(a.ends_at)-+new Date(b.ends_at))}
+function card(a){
+  const s=state(a),img=httpsOnly(a.image_url),mine=a.seller_id===UID,top=a.current_bidder===UID;
+  let tag='';
+  if(mine)tag='<span class="tag">Tu subasta</span>';
+  else if(MYB.has(a.id)&&s==='live')tag=top?'<span class="tag win">Vas ganando</span>':'<span class="tag lose">Te superaron</span>';
+  else if(MYB.has(a.id)&&s==='end')tag=top?'<span class="tag win">¡La ganaste!</span>':'<span class="tag lose">No ganaste</span>';
+  const price=s==='soon'?['Precio inicial',a.start_price]:s==='live'?[a.current_bid==null?'Precio inicial':'Puja actual',a.current_bid==null?a.start_price:a.current_bid]:[a.bid_count?'Precio final':'Sin pujas',a.current_bid==null?a.start_price:a.current_bid];
+  const right=s==='soon'?'<small>Empieza en</small><b data-cd="'+a.starts_at+'">'+dur(+new Date(a.starts_at)-Date.now())+'</b>':s==='live'?'<small>Termina en</small><b data-cd="'+a.ends_at+'">'+dur(+new Date(a.ends_at)-Date.now())+'</b>':'<small>'+(a.bid_count?'Ganó':'Finalizó')+'</small><b style="font-size:15px">'+(a.bid_count?E(uA(a.current_bidder)):'—')+'</b>';
+  return '<article class="au15" data-s15="open" data-id="'+E(a.id)+'"><div class="im"'+(img?' style="background-image:'+bgu(img)+'"':'')+'>'+(img?'':catIcon(a.category))+'<span class="cat">'+catIcon(a.category)+' '+E(a.category)+'</span><span class="stt '+s+'">'+(s==='live'?'● En vivo':s==='soon'?'Próxima':'Finalizada')+'</span></div>'+
+   '<div class="bd"><b class="tt">'+E(a.title)+'</b><small>de '+E(uA(a.seller_id))+'</small>'+tag+'<div class="pr15"><div><small>'+price[0]+'</small><b>'+money(price[1])+'</b></div><div class="r">'+right+'</div></div>'+
+   '<small>'+(s==='soon'?'Empieza: '+fdate(a.starts_at)+' · termina: '+fdate(a.ends_at):s==='live'?'Termina: '+fdate(a.ends_at)+' · '+a.bid_count+(a.bid_count==1?' puja':' pujas'):'Finalizó: '+fdate(a.ends_at)+' · '+a.bid_count+(a.bid_count==1?' puja':' pujas'))+'</small></div></article>'}
+function renderL(){
+  const l=document.getElementById('sub15l');if(!l)return;
+  if(SQLMISS){l.innerHTML='<p class="emp" style="text-align:center;margin-top:40px">Las subastas aún no están activadas en la base de datos.<br>Ejecuta <b>subastas.sql</b> en Supabase y recarga.</p>';return}
+  if(!UID){l.innerHTML='<p class="emp" style="text-align:center;margin-top:40px">Inicia sesión para ver y crear subastas.</p>';return}
+  const v=visible(),msg={live:'No hay subastas en vivo ahora.',soon:'No hay subastas programadas.',end:'Todavía no ha terminado ninguna.',mine:'Aquí verás las subastas que creas y en las que pujas.'}[TAB];
+  l.innerHTML=v.length?v.map(card).join(''):'<p class="emp" style="text-align:center;margin-top:40px">'+msg+'<br>'+(TAB==='live'||TAB==='soon'?'¡Crea la primera con «+ Crear»!':'')+'</p>'}
+async function loadAU(quiet){
+  if(!UID)return renderL();
+  const r=await sb.from('auctions').select('*').order('ends_at',{ascending:false}).limit(150);
+  if(r.error){SQLMISS=/auctions|relation|schema cache|does not exist/i.test(r.error.message||'');if(!quiet)renderL();return}
+  SQLMISS=false;AU=r.data||[];
+  const ids=[...new Set(AU.flatMap(a=>[a.seller_id,a.current_bidder]).filter(Boolean))];
+  const [pr,mb]=await Promise.all([ids.length?sb.from('profiles').select('id,username,display_name,avatar_url').in('id',ids):{data:[]},sb.from('bids').select('auction_id').eq('bidder_id',UID)]);
+  (pr.data||[]).forEach(p=>APM[p.id]=p);MYB=new Set((mb.data||[]).map(x=>x.auction_id));
+  renderL();
+  /* cerrar las terminadas que todavía no tienen ganador guardado */
+  AU.filter(a=>state(a)==='end'&&a.bid_count>0&&!a.winner_id).slice(0,5).forEach(a=>sb.rpc('settle_auction',{p_auction:a.id}).then(()=>{}))}
+function openSub(){go('sub');renderF();renderL();loadAU();if(!AUT)AUT=setInterval(tick,1000)}
+let lastPoll=0,lastState='';
+function tick(){
+  document.querySelectorAll('[data-cd]').forEach(el=>{const t=+new Date(el.dataset.cd)-Date.now();el.textContent=dur(t)});
+  const onSub=document.getElementById('sub').classList.contains('on'),det=document.querySelector('#sh [data-au]');
+  const sig=AU.map(a=>state(a)).join('');
+  if(onSub&&sig!==lastState){lastState=sig;renderL()}
+  const now=Date.now();
+  if(det&&document.getElementById('md').classList.contains('on')&&now-lastPoll>4000){lastPoll=now;refreshDet()}
+  else if(onSub&&now-lastPoll>15000){lastPoll=now;loadAU(true)}}
+
+/* ----- detalle ----- */
+async function fetchOne(id){const r=await sb.from('auctions').select('*').eq('id',id).maybeSingle();if(r.data){const i=AU.findIndex(x=>x.id===id);if(i>=0)AU[i]=r.data;else AU.unshift(r.data);const ids=[r.data.seller_id,r.data.current_bidder].filter(Boolean).filter(x=>!APM[x]);
+  if(ids.length){const p=await sb.from('profiles').select('id,username,display_name,avatar_url').in('id',ids);(p.data||[]).forEach(x=>APM[x.id]=x)}}return r.data}
+async function bidsOf(id){const r=await sb.from('bids').select('bidder_id,amount,created_at').eq('auction_id',id).order('created_at',{ascending:false}).limit(12);const rows=r.data||[];
+  const ids=[...new Set(rows.map(x=>x.bidder_id))].filter(x=>!APM[x]);if(ids.length){const p=await sb.from('profiles').select('id,username,display_name,avatar_url').in('id',ids);(p.data||[]).forEach(x=>APM[x.id]=x)}return rows}
+async function openDet(id){
+  DET=id;BIDV=0;DSIG='';M('<h3>Cargando…</h3>');
+  const a=await fetchOne(id);if(!a)return M('<h3>La subasta ya no existe</h3><button type="button" class="sx" data-a="x">Cerrar</button>');
+  await drawDet(a,true)}
+async function refreshDet(){if(!DET)return;const a=await fetchOne(DET);if(!a||!document.querySelector('#sh [data-au]'))return;
+  const sig=a.current_bid+'|'+a.bid_count+'|'+a.ends_at+'|'+state(a);if(sig===DSIG)return;await drawDet(a,false)}
+async function drawDet(a,first){
+  const rows=await bidsOf(a.id);DSIG=a.current_bid+'|'+a.bid_count+'|'+a.ends_at+'|'+state(a);
+  const s=state(a),mine=a.seller_id===UID,top=a.current_bidder===UID,min=minBid(a),img=httpsOnly(a.image_url);
+  if(!BIDV||BIDV<min)BIDV=min;
+  let panel='';
+  if(s==='live'&&!mine){
+    const q=[...new Set([min,+(min+ +a.min_increment).toFixed(2),+(min+ +a.min_increment*4).toFixed(2),+(min+ +a.min_increment*9).toFixed(2)])];
+    panel=(top?'<div class="bn15 ok">Vas ganando con '+money(a.current_bid)+'. Si alguien te supera, te avisamos aquí.</div>':'')+
+     '<div class="sg" style="margin:0">Tu puja</div><div class="bs15"><button type="button" class="st" data-s15="step" data-d="-1" aria-label="Bajar">−</button><div class="in"><span>$</span><input id="bidv" type="number" inputmode="decimal" min="'+min+'" step="'+a.min_increment+'" value="'+BIDV+'"></div><button type="button" class="st" data-s15="step" data-d="1" aria-label="Subir">+</button></div>'+
+     '<div class="qk15">'+q.map((x,i)=>'<button type="button" data-s15="set" data-v="'+x+'">'+(i?'+'+money(x-min):'Mínima')+' · '+money(x)+'</button>').join('')+'</div>'+
+     '<small style="opacity:.7;font-weight:600">Mínimo para pujar: '+money(min)+' · se sube de '+money(a.min_increment)+' en '+money(a.min_increment)+'</small>'+
+     '<button type="button" class="pb2" data-s15="bid" '+(top?'disabled style="opacity:.45"':'')+'>Pujar '+money(BIDV)+'</button>'}
+  else if(s==='live'&&mine)panel='<div class="bn15 in">Esta es tu subasta. Cuando termine, el mejor postor se la lleva.</div>'+(a.bid_count?'':'<button type="button" class="sx" data-s15="cancel" data-id="'+E(a.id)+'">Cancelar subasta (aún sin pujas)</button>');
+  else if(s==='soon')panel='<div class="bn15 in">Las pujas se abren el <b>'+fdate(a.starts_at)+'</b>. Vuelve a esa hora.</div>'+(mine&&!a.bid_count?'<button type="button" class="sx" data-s15="cancel" data-id="'+E(a.id)+'">Cancelar subasta</button>':'');
+  else{
+    if(a.bid_count){const w=a.current_bidder;panel='<div class="bn15 '+(w===UID?'ok':mine?'in':'no')+'">'+(w===UID?'🎉 ¡Ganaste esta subasta con '+money(a.current_bid)+'!':mine?'🏁 Ganó '+E(uA(w))+' con '+money(a.current_bid)+'.':'Ganó '+E(uA(w))+' con '+money(a.current_bid)+'.')+'</div>';
+      if(w===UID||mine){const o=w===UID?a.seller_id:w;panel+='<button type="button" class="pb2" data-q="pmsg" data-id="'+E(o)+'" data-n="'+E((APM[o]||{}).display_name||uA(o))+'" data-u="'+E(uA(o))+'">Escribir a '+E(uA(o))+' para coordinar</button>'}}
+    else panel='<div class="bn15 in">Terminó sin pujas.</div>'}
+  const html='<div data-au="'+E(a.id)+'"></div><div class="dim15"'+(img?' style="background-image:'+bgu(img)+'"':'')+'>'+(img?'':catIcon(a.category))+'</div>'+
+   '<h3 style="margin:0">'+E(a.title)+'</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="tag" style="padding:3px 10px;border-radius:999px;background:#EADFD3;font:700 12px \'Plus Jakarta Sans\',sans-serif">'+catIcon(a.category)+' '+E(a.category)+'</span><span class="stt '+s+'" style="padding:3px 10px;border-radius:999px;font:700 12px \'Plus Jakarta Sans\',sans-serif">'+(s==='live'?'● En vivo':s==='soon'?'Próxima':'Finalizada')+'</span></div>'+
+   (a.description?'<p class="cp" style="margin:0;white-space:pre-wrap">'+E(a.description)+'</p>':'')+
+   '<button type="button" class="row2" data-x="pf" data-u="'+E(uA(a.seller_id))+'" style="margin:0"><b>Vendedor</b><span>'+E(uA(a.seller_id))+' · ver perfil</span></button>'+
+   '<div class="bx15"><div class="l"><small>'+(a.current_bid==null?'Precio inicial':s==='end'?'Precio final':'Puja actual')+'</small><small>'+a.bid_count+(a.bid_count==1?' puja':' pujas')+(a.current_bidder&&s!=='soon'?' · va '+E(uA(a.current_bidder)):'')+'</small></div><div class="big">'+money(a.current_bid==null?a.start_price:a.current_bid)+'</div>'+
+   '<div class="l"><small>'+(s==='soon'?'Empieza en':s==='live'?'Termina en':'Finalizó')+'</small>'+(s==='end'?'<small>'+fdate(a.ends_at)+'</small>':'<span class="cd" data-cd="'+(s==='soon'?a.starts_at:a.ends_at)+'">'+dur(+new Date(s==='soon'?a.starts_at:a.ends_at)-Date.now())+'</span>')+'</div>'+
+   '<small style="opacity:.75;font-weight:600">'+(s==='soon'?'Empieza: '+fdate(a.starts_at)+' · ':'')+'Cierra: '+fdate(a.ends_at)+'</small></div>'+panel+
+   (s==='live'?'<small style="opacity:.65">Si alguien puja en los últimos 2 minutos, el cierre se extiende 2 minutos más. Las pujas no se pueden retirar.</small>':'')+
+   '<div class="sg" style="margin:0">Historial de pujas</div>'+(rows.length?rows.map(r=>'<div class="bh15"><span>'+E(uA(r.bidder_id))+(r.bidder_id===UID?' (tú)':'')+' · '+ago(r.created_at)+'</span><b>'+money(r.amount)+'</b></div>').join(''):'<p class="emp" style="margin:0">Todavía no hay pujas.</p>')+
+   '<button type="button" class="sx" data-a="x">Cerrar</button>';
+  const sh=document.getElementById('sh'),sc=sh.scrollTop;M(html);if(!first)sh.scrollTop=sc;
+  const inp=document.getElementById('bidv');if(inp)inp.addEventListener('input',()=>{BIDV=parseFloat(inp.value)||0;const b=document.querySelector('#sh [data-s15="bid"]');if(b)b.textContent='Pujar '+money(BIDV)})}
+
+async function doBid(){
+  const a=AU.find(x=>x.id===DET);if(!a)return;const v=Math.round((parseFloat((document.getElementById('bidv')||{}).value)||0)*100)/100,min=minBid(a);
+  if(v<min)return toast('La puja mínima es '+money(min));
+  if(!confirm('¿Pujar '+money(v)+' por «'+a.title+'»? No se puede retirar.'))return;
+  const r=await sb.rpc('place_bid',{p_auction:a.id,p_amount:v});
+  if(r.error){const m=String(r.error.message||'');toast(m.length<90?m:'No se pudo pujar');return refreshDet()}
+  BIDV=0;MYB.add(a.id);toast('¡Puja registrada!');await fetchOne(a.id);DSIG='';await drawDet(AU.find(x=>x.id===a.id),false)}
+
+/* ----- crear ----- */
+let CR={mode:'now',dur:24*3600e3};
+const ltl=d=>{const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())};
+function sumCr(){const s=CR.mode==='now'?new Date():new Date((document.getElementById('au_s')||{}).value),e=new Date((document.getElementById('au_e')||{}).value),t=document.getElementById('au_sum');if(!t)return;
+  if(isNaN(s)||isNaN(e)){t.textContent='Elige fecha y hora.';return}
+  const d=e-s;t.textContent=d<=0?'⚠️ La hora de cierre debe ser posterior al inicio.':(CR.mode==='now'?'Empieza al publicar':'Empieza el '+fdate(s))+' · cierra el '+fdate(e)+' · dura '+dur(d).replace(/^(\d\d):(\d\d):(\d\d)$/,'$1 h $2 min')}
+function openNew(){
+  if(!UID)return toast('Inicia sesión para crear una subasta');
+  CR={mode:'now',dur:24*3600e3};const end=new Date(Date.now()+CR.dur);
+  M('<h3>Crear subasta</h3><div class="dt15" style="display:flex;flex-direction:column;gap:12px">'+
+   '<label>¿Qué subastas?<select id="au_c">'+CATS.map(c=>'<option value="'+E(c[0])+'">'+c[1]+' '+E(c[2])+'</option>').join('')+'</select></label>'+
+   '<label>Título<input id="au_t" class="f2" maxlength="70" placeholder="Ej.: YCH busto estilo anime · 3 cupos"></label>'+
+   '<label>Descripción<textarea id="au_d" maxlength="600" placeholder="Qué incluye, qué derechos se ceden, plazos de entrega…"></textarea></label>'+
+   drop('au_f','Elegir imagen o GIF de la subasta')+
+   '<div class="sg" style="margin:0">Puja</div>'+
+   '<label>Precio inicial (USD)<input id="au_p" class="f2" type="number" inputmode="decimal" min="0" step="0.5" value="10"></label>'+
+   '<div><small style="font-weight:600;opacity:.75">Incremento mínimo entre pujas</small><div class="qk15" style="margin-top:6px" id="au_i">'+[0.5,1,5,10,25].map((x,i)=>'<button type="button" data-s15="inc" data-v="'+x+'" class="'+(x===1?'on':'')+'" style="'+(x===1?'background:#121214;color:#FFFDF9':'')+'">'+money(x)+'</button>').join('')+'</div></div>'+
+   '<div class="sg" style="margin:0">Horario</div><div class="ch15"><button type="button" data-s15="mode" data-m="now" class="on">Empezar ahora</button><button type="button" data-s15="mode" data-m="sch">Programar inicio</button></div>'+
+   '<label id="au_sw" style="display:none">Empieza<input id="au_s" type="datetime-local" value="'+ltl(new Date(Date.now()+3600e3))+'"></label>'+
+   '<div><small style="font-weight:600;opacity:.75">Duración rápida</small><div class="qk15" style="margin-top:6px">'+[['1 h',1],['6 h',6],['12 h',12],['1 día',24],['3 días',72],['7 días',168]].map(d=>'<button type="button" data-s15="dur" data-h="'+d[1]+'">'+d[0]+'</button>').join('')+'</div></div>'+
+   '<label>Termina<input id="au_e" type="datetime-local" value="'+ltl(end)+'"></label>'+
+   '<div class="sm15" id="au_sum"></div>'+
+   '<small style="opacity:.7;font-weight:600">El mejor postor al cierre se lleva la subasta. Luego coordinan el pago y la entrega por mensajes.</small>'+
+   '<button type="button" class="pb2" data-s15="publish">Publicar subasta</button><button type="button" class="sx" data-a="x">Cancelar</button></div>');
+  sumCr()}
+function refreshIncs(v){document.querySelectorAll('#au_i button').forEach(b=>{const on=b.dataset.v==String(v);b.classList.toggle('on',on);b.style.background=on?'#121214':'';b.style.color=on?'#FFFDF9':''})}
+async function publish(){
+  const g=id=>document.getElementById(id),t=g('au_t').value.trim(),price=parseFloat(g('au_p').value),inc=parseFloat((document.querySelector('#au_i button.on')||{}).dataset?.v||1),
+    s=CR.mode==='now'?new Date():new Date(g('au_s').value),e=new Date(g('au_e').value),f=g('au_f')&&g('au_f').files[0];
+  if(!t)return toast('Escribe un título');
+  if(isNaN(price)||price<0)return toast('Revisa el precio inicial');
+  if(isNaN(s)||isNaN(e))return toast('Elige fecha y hora');
+  if(CR.mode==='sch'&&s<Date.now()-60000)return toast('El inicio programado ya pasó');
+  if(e-s<10*60000)return toast('La subasta debe durar al menos 10 minutos');
+  if(e-s>30*86400e3)return toast('Máximo 30 días de duración');
+  const btn=document.querySelector('#sh [data-s15="publish"]');btn.disabled=true;btn.textContent='Publicando…';
+  try{
+    let url=null;
+    if(f){const anim=animFile(f)&&!/^video\//.test(f.type);
+      if(/^video\//.test(f.type))throw new Error('Para la subasta usa una imagen o GIF');
+      if(anim&&f.size>MAXG)throw new Error('El GIF pesa demasiado (máx. 12 MB)');
+      const blob=anim?f:await (await fetch(await new Promise(r=>rd(f,r,1400)))).blob(),path=UID+'/auctions/'+Date.now()+'.'+(anim?extOf(f):'jpg');
+      const up=await sb.storage.from('media').upload(path,blob,{contentType:anim?f.type:'image/jpeg',cacheControl:'31536000'});if(up.error)throw up.error;
+      url=sb.storage.from('media').getPublicUrl(path).data.publicUrl}
+    const r=await sb.from('auctions').insert({seller_id:UID,title:t.slice(0,70),description:g('au_d').value.trim().slice(0,600),category:g('au_c').value,image_url:url,start_price:price,min_increment:inc,starts_at:s.toISOString(),ends_at:e.toISOString()}).select().single();
+    if(r.error)throw r.error;
+    X();TAB=CR.mode==='now'?'live':'soon';FIL='Todas';toast('Subasta publicada');renderF();document.querySelectorAll('.tb15 button').forEach(b=>b.classList.toggle('on',b.dataset.t===TAB));await loadAU()
+  }catch(er){btn.disabled=false;btn.textContent='Publicar subasta';toast('No se pudo publicar: '+String((er&&er.message)||er).slice(0,80))}}
+
+/* ----- eventos de subastas y del chat ----- */
+app.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-s15]');
+  if(t){const k=t.dataset.s15;
+    if(k==='new')return openNew();
+    if(k==='tab'){TAB=t.dataset.t;document.querySelectorAll('.tb15 button').forEach(b=>b.classList.toggle('on',b===t));return renderL()}
+    if(k==='fil'){FIL=t.dataset.c;renderF();return renderL()}
+    if(k==='open')return openDet(t.dataset.id);
+    if(k==='step'){const a=AU.find(x=>x.id===DET);if(!a)return;const i=document.getElementById('bidv'),min=minBid(a),v=Math.max(min,Math.round(((parseFloat(i.value)||min)+ +t.dataset.d*+a.min_increment)*100)/100);BIDV=v;i.value=v;const b=document.querySelector('#sh [data-s15="bid"]');if(b)b.textContent='Pujar '+money(v);return}
+    if(k==='set'){BIDV=+t.dataset.v;document.getElementById('bidv').value=BIDV;const b=document.querySelector('#sh [data-s15="bid"]');if(b)b.textContent='Pujar '+money(BIDV);return}
+    if(k==='bid')return doBid();
+    if(k==='cancel'){if(!confirm('¿Cancelar esta subasta?'))return;const r=await sb.from('auctions').delete().eq('id',t.dataset.id).eq('seller_id',UID);if(r.error)return toast('No se pudo cancelar');X();toast('Subasta cancelada');return loadAU()}
+    if(k==='inc'){refreshIncs(t.dataset.v);return}
+    if(k==='mode'){CR.mode=t.dataset.m;document.querySelectorAll('#sh [data-s15="mode"]').forEach(b=>b.classList.toggle('on',b===t));document.getElementById('au_sw').style.display=CR.mode==='sch'?'block':'none';
+      if(CR.mode==='sch'){const s=new Date(document.getElementById('au_s').value),e2=new Date(document.getElementById('au_e').value);if(!isNaN(s)&&e2<=s)document.getElementById('au_e').value=ltl(new Date(+s+CR.dur))}return sumCr()}
+    if(k==='dur'){CR.dur=+t.dataset.h*3600e3;const s=CR.mode==='now'?new Date():new Date(document.getElementById('au_s').value);document.getElementById('au_e').value=ltl(new Date((isNaN(s)?Date.now():+s)+CR.dur));return sumCr()}
+    if(k==='publish')return publish()}
+  const v=e.target.closest('[data-v15]');
+  if(v){const k=v.dataset.v15;
+    if(k==='chtheme'){if(!document.getElementById('chat').classList.contains('on'))return;return chatModal()}
+    if(k==='ct'){const key=v.dataset.k,val=v.dataset.v;if(val)CT[key]=val;else delete CT[key];if(key==='bm')delete CT.tm;if(key==='bo')delete CT.to;saveCT();
+      document.querySelectorAll('#sh [data-v15="ct"][data-k="'+key+'"]').forEach(b=>b.classList.toggle('on',b===v));return}
+    if(k==='theme'){CT=Object.assign({},THEMES[+v.dataset.i][1]);saveCT();return chatModal()}
+    if(k==='ctreset'){CT={};saveCT();return chatModal()}}});
+document.addEventListener('input',e=>{if(e.target.id==='au_s'||e.target.id==='au_e')sumCr()});
+
+/* Personalizar también desde Ajustes → Chat (si existe la lista) */
+document.addEventListener('click',e=>{const b=e.target.closest('[data-s="open"]');if(!b)return;setTimeout(()=>{
+  const sh=document.getElementById('sh');if(!sh||sh.querySelector('[data-v15="chtheme-s"]'))return;const h=[...sh.querySelectorAll('.sg')].find(x=>x.textContent.trim()==='Apariencia');
+  if(h){const r=document.createElement('button');r.type='button';r.className='row2';r.dataset.v15s='chat';r.innerHTML='<b>Personalizar chats</b><span>Fondo, burbujas, fuente y tamaño</span>';h.after(r)}},0)});
+app.addEventListener('click',e=>{if(e.target.closest('[data-v15s="chat"]')){e.stopPropagation();chatModal()}});
+})();
+</script>
+<script>console.log("Comish index v15")</script></body></html>
