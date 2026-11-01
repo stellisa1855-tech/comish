@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Comish</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Dancing+Script:wght@700&display=swap"><style>
+<html lang="es"><head><meta charset="utf-8"><meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Comish</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,500&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Dancing+Script:wght@700&display=swap"><style>
 :root{--ac:#DE7457}*{box-sizing:border-box}body{margin:0;background:#EDE4D8;font-family:'Plus Jakarta Sans',sans-serif;color:#121214}
 button,input{font-family:inherit;color:#121214}input::placeholder{color:#121214;opacity:.75}
 #app{position:relative;max-width:430px;height:100vh;height:100dvh;max-height:920px;margin:0 auto;overflow:hidden;background:#FFFDF9}
@@ -262,7 +262,7 @@ return '<article class="post" data-id="'+p.id+'">'+(sb?'<small class="shl">↻ C
 '<div class="act" style="margin-top:10px">'+(mine?'':'<button class="pm" data-x="msg" data-id="'+p.id+'">Mensaje</button>')+'<span style="flex:1"></span><button class="pr" data-x="pf" data-u="'+u+'">Ver perfil</button></div>'+
 '<p>'+E(p.t)+'</p><div class="trk" style="margin-top:6px">'+p.tags.map(t=>'<span data-x="tag" data-t="'+E(t)+'" style="cursor:pointer">#'+E(t)+'</span>').join('')+'</div></article>'};
 const FD=()=>{const f=$('#feed .fd');if(!f)return;const sc=f.scrollTop,ok=p=>!FT||p.tags.includes(FT);
-const it=[...D.shares.map(P).filter(Boolean).filter(ok).map(p=>PO(p,1)),...D.posts.filter(ok).map(p=>PO(p))];
+const it=D.posts.filter(ok).map(p=>PO(p));
 f.innerHTML=(FT?'<div class="fbar"><span>Etiqueta <b>#'+E(FT)+'</b></span><button data-x="clr">✕ Quitar</button></div>':'')+(it.length?it.join(''):'<p class="emp" style="margin-top:40px">Aún no hay publicaciones aquí.</p>');
 f.scrollTop=sc;$$('#feed .chip').forEach(c=>c.classList.toggle('on',FT?c.textContent.toLowerCase()==FT:c.textContent=='Todo'));$$('#feed .post').forEach(a=>IO.observe(a))};
  
@@ -345,7 +345,7 @@ $$('.post[data-id="'+d.id+'"] button[data-x="lk"]').forEach(b=>{b.classList.togg
 cm:d=>CM(d.id),
 sendc:d=>{const v=$('#ci2').value.trim();if(!v)return;P(d.id).cm.push({u:D.name||me(),t:v,d:now()});S();CM(d.id);FD()},
 sh:d=>{const p=P(d.id);if(p.by==me())return toast('Es tu propia publicación');const i=D.shares.indexOf(p.id);
-if(i<0){D.shares.unshift(p.id);p.sh=(p.sh||0)+1;toast('Compartido en tu perfil y tu feed')}else{D.shares.splice(i,1);p.sh=Math.max(0,(p.sh||1)-1);toast('Ya no está compartido')}S();FD();FX()},
+if(i<0){D.shares.unshift(p.id);p.sh=(p.sh||0)+1;toast('Compartido en tu perfil')}else{D.shares.splice(i,1);p.sh=Math.max(0,(p.sh||1)-1);toast('Ya no está compartido')}S();FD();FX()},
 pf:d=>PP(d.u),
 msg:d=>{const p=P(d.id);$('#md').classList.remove('on');OC({art:nm(p),h:p.by})},
 tag:d=>{FT=d.t;$('#md').classList.remove('on');go('feed');FD();$('#feed .fd').scrollTop=0},
@@ -1312,65 +1312,348 @@ const R9=R_;R_=function(){R9();CX()};
 R_();
 })();
 </script>
-<!-- ===== FASE 10: punto verde de "activo ahora" (Supabase Realtime Presence) ===== -->
+<!-- FASE 8b: si el servidor rechaza send_message, abre la conversación y reintenta -->
+<script>
+(()=>{
+if(window.__f8b)return;window.__f8b=1;
+const sb=window.sb;if(!sb)return;
+const rpc0=sb.rpc.bind(sb);
+sb.rpc=async(fn,args,o)=>{
+  const r=await rpc0(fn,args,o);
+  if(fn==='send_message'&&r.error&&args&&args.p_thread){
+    try{await sb.from('threads').update({status:'accepted'}).eq('id',args.p_thread)}catch(e){}
+    return rpc0(fn,args,o)}
+  return r};
+})();
+</script>
+<!-- ===== PARCHE 3 · pegar justo antes de </body>, DESPUÉS de todo lo demás =====
+ Incluye: punto verde (nuevo), ojo de contraseña, engranaje de ajustes, editar usuario,
+ etiquetas al registrarse y feed personalizado. Es seguro aunque los parches anteriores sigan pegados. -->
 <style>
-.isOn{position:relative}
-.isOn::after{content:'';position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#2FBF71;border:2.5px solid #FFFDF9;box-sizing:border-box;pointer-events:none}
-#av.isOn::after{right:auto;left:4px;bottom:4px;width:18px;height:18px;border-width:3px}
-.ppa.isOn::after{width:18px;height:18px;right:2px;bottom:2px;border-width:3px}
-#pres{display:block;margin:6px auto 0}
+.wheel,#wp,#lo,#pres{display:none!important}
+.isOn::after,.onl::after{display:none!important}
+.gd{position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#2FBF71;border:2.5px solid #FFFDF9;box-sizing:border-box;pointer-events:none;z-index:3;display:block;text-decoration:none}
+#av>.gd{right:auto;left:4px;bottom:4px;width:20px;height:20px;border-width:3px}
+.ppa>.gd{width:18px;height:18px;right:2px;bottom:2px;border-width:3px}
+.ph i,.th i,.ppa,#cav,#av{position:relative}
+.pwr{position:relative;width:100%;flex:none}
+.pwr .fld{padding-right:54px}
+.eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;background:none;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;color:#121214;opacity:.75}
+.eye:hover{opacity:1}
+.bn button.gear{top:12px;right:12px;bottom:auto;width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center}
+#perfil [data-a="ver"]{display:none}
+.tg{padding:7px 13px;border:0;border-radius:999px;background:#EADFD3;font:600 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.tg.on{background:var(--ac)}
+.eh{font:600 20px Fraunces,serif;margin:12px 0 0}
+#chat .ch .cav{width:40px;height:40px;flex:none;border-radius:50%;background:#8E96B8 center/cover;color:#FFFDF9;font:600 16px Fraunces,serif;display:flex;align-items:center;justify-content:center}
+#pres{display:none!important}
+#itg{margin-top:2px}
 </style>
 <script>
 (()=>{
-if(window.__f10)return;window.__f10=1;
+if(window.__f13)return;window.__f13=1;
 const sb=window.sb;if(!sb)return;
-const ON=new Set();let pres=null,UID=null;
-const share=()=>{try{return localStorage.getItem('comish_pres')!=='off'}catch(e){return true}};
-const isOn=id=>!!id&&ON.has(String(id));
+const L=k=>{try{return localStorage.getItem(k)}catch(e){return null}},W=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const share=()=>L('comish_pres')!=='off';
+let UID=null,EMAIL='',HAS=false,INT={a:[],i:[]};
 
-function chatStatus(){
-  const h=document.getElementById('chh');if(!h||typeof TH==='undefined'||!TH)return;
-  const base=h.textContent.replace(/ · Activo ahora$/,''),act=isOn(TH.isB?TH.artistId:TH.buyerId),t=base+(act?' · Activo ahora':'');
-  if(h.textContent!==t)h.textContent=t}
+/* ---------- Catálogo de etiquetas (las claves coinciden con las etiquetas de las publicaciones) ---------- */
+const TG=[
+['Tipo de artista',[['Ilustrador digital','digital'],['Ilustrador tradicional','tradicional'],['VTuber / modelos','vtuber'],['Fan arts','fan arts'],['Diseño de OCs','oc'],['Pixel art','pixel art'],['3D','3d'],['Animación','animación'],['Cómic / manga','cómic'],['Acuarela','acuarela'],['Lápiz','lápiz'],['Tinta','tinta'],['Óleo','óleo'],['Collage','collage']]],
+['Estilo',[['Anime','anime'],['Manga','manga'],['Chibis','chibi'],['Kawaii','kawaii'],['Girly','girly'],['Realista','realista'],['Semirrealista','semirrealista'],['Cartoon','cartoon'],['Lineart','lineart'],['Cel shading','cel shading'],['Flat color','flat color'],['Minimalista','minimalista'],['Gótico','gótico'],['Gore','gore'],['Horror','horror'],['Dark fantasy','dark fantasy'],['Retro','retro'],['Lofi','lofi']]],
+['Contenido',[['NSFW (+18)','nsfw'],['Furry','furry'],['Fantasy','fantasy'],['Sci-fi','sci-fi'],['Mecha','mecha'],['Gaming','gaming'],['Cottagecore','cottagecore'],['Naturaleza','naturaleza'],['Moda','moda'],['Cosplay','cosplay'],['Mascotas','mascota'],['Retratos','retrato'],['Parejas','pareja']]],
+['Formato',[['Icons','icons'],['Busto','busto'],['Half body','half body'],['Full body','full body'],['Headshot','headshot'],['Reference sheet','reference sheet'],['Emotes','emotes'],['Stickers','stickers'],['Sprites','sprites'],['Portadas','portada'],['Wallpapers','wallpaper'],['Banners','banner'],['Logos','logo'],['Overlays','overlay']]]];
+const LBL={};TG.forEach(([g,a])=>a.forEach(([l,k])=>LBL[k]=l));
 
+/* ---------- Ojo para ver la contraseña ---------- */
+const OPEN='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const SHUT='<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.9 17.9A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9M9.9 5.1A10.4 10.4 0 0 1 12 5c7 0 11 7 11 7a18.5 18.5 0 0 1-2.2 3.2M1 1l22 22"/><path d="M14.1 14.1a3 3 0 1 1-4.2-4.2"/></svg>';
+function eye(inp){
+  if(!inp||inp.parentNode.classList.contains('pwr'))return;
+  const w=document.createElement('div');w.className='pwr';
+  inp.parentNode.insertBefore(w,inp);w.appendChild(inp);
+  const b=document.createElement('button');b.type='button';b.className='eye';
+  b.setAttribute('aria-label','Mostrar contraseña');b.innerHTML=OPEN;
+  b.onclick=()=>{const s=inp.type==='password';inp.type=s?'text':'password';
+    b.innerHTML=s?SHUT:OPEN;b.setAttribute('aria-label',s?'Ocultar contraseña':'Mostrar contraseña');inp.focus()};
+  w.appendChild(b)}
+eye($('#lpw'));eye($('#crear input[type=password]'));
+
+/* ---------- Punto verde: sesión propia + presencia en tiempo real + "última conexión" ---------- */
+const ON=new Set(),LS={},asked=new Set();
+const online=id=>{if(!id)return false;id=String(id);if(id===UID)return HAS&&share();if(ON.has(id))return true;const t=LS[id];return !!t&&Date.now()-t<150000};
+const dot=(el,on)=>{if(!el)return;const d=el.querySelector(':scope>.gd');
+  if(on&&!d){const u=document.createElement('u');u.className='gd';el.appendChild(u)}else if(!on&&d)d.remove()};
+const ids=()=>{const s=new Set();(D.posts||[]).forEach(p=>p.uid&&s.add(p.uid));(D.threads||[]).forEach(t=>s.add(t.isB?t.artistId:t.buyerId));
+  const f=document.querySelector('#sh [data-q="fol"][data-id]');if(f)s.add(f.dataset.id);s.delete(UID);s.delete(undefined);s.delete(null);return [...s]};
+let rt;const schedule=()=>{clearTimeout(rt);rt=setTimeout(refresh,300)};
 function paint(){
-  document.querySelectorAll('#feed .post').forEach(el=>{
-    const p=D.posts.find(x=>String(x.id)===el.dataset.id),i=el.querySelector('.ph i');
-    if(i)i.classList.toggle('isOn',!!p&&isOn(p.uid))});
-  document.querySelectorAll('#ml .th[data-i]').forEach(b=>{
-    const t=D.threads.find(x=>String(x.id)===b.dataset.i),i=b.querySelector('i');
-    if(i)i.classList.toggle('isOn',!!t&&isOn(t.isB?t.artistId:t.buyerId))});
-  const av=document.getElementById('av');if(av)av.classList.toggle('isOn',!!UID&&share()&&ON.has(UID));
-  const fol=document.querySelector('#sh [data-q="fol"][data-id]'),ppa=document.querySelector('#sh .ppa');
-  if(ppa)ppa.classList.toggle('isOn',!!fol&&isOn(fol.dataset.id));
-  chatStatus()}
-
+  dot($('#av'),online(UID));
+  $$('#feed .post').forEach(el=>{const p=D.posts.find(x=>String(x.id)===el.dataset.id);dot(el.querySelector('.ph i'),!!p&&online(p.uid))});
+  $$('#ml .th[data-i]').forEach(b=>{const t=D.threads.find(x=>String(x.id)===b.dataset.i);dot(b.querySelector('i'),!!t&&online(t.isB?t.artistId:t.buyerId))});
+  const f=document.querySelector('#sh [data-q="fol"][data-id]'),pp=document.querySelector('#sh .ppa');if(pp)dot(pp,!!f&&online(f.dataset.id));
+  if(typeof TH!=='undefined'&&TH&&$('#cav'))dot($('#cav'),online(TH.isB?TH.artistId:TH.buyerId));
+  if(UID&&ids().some(i=>!asked.has(i)))schedule()}
+async function refresh(){const l=ids();if(!l.length||!UID)return;l.forEach(i=>asked.add(i));
+  const r=await sb.from('profiles').select('id,last_seen').in('id',l);
+  if(r.error)return;(r.data||[]).forEach(x=>{LS[x.id]=x.last_seen?new Date(x.last_seen).getTime():0});paint()}
+async function beat(){if(!UID||document.hidden)return;try{await sb.from('profiles').update({last_seen:share()?new Date().toISOString():null}).eq('id',UID)}catch(e){}}
 let pend=false;
-new MutationObserver(()=>{if(pend)return;pend=true;requestAnimationFrame(()=>{pend=false;paint()})}).observe(document.getElementById('app'),{childList:true,subtree:true});
+new MutationObserver(()=>{if(pend)return;pend=true;requestAnimationFrame(()=>{pend=false;paint()})}).observe($('#app'),{childList:true,subtree:true});
 
-function stop(){if(pres){try{sb.removeChannel(pres)}catch(e){}pres=null}ON.clear()}
-function begin(s){
-  UID=s&&s.user?s.user.id:null;stop();
-  if(UID&&share()){
-    pres=sb.channel('comish-online',{config:{presence:{key:UID}}});
-    pres.on('presence',{event:'sync'},()=>{ON.clear();Object.keys(pres.presenceState()).forEach(k=>ON.add(k));paint()})
-        .subscribe(async st=>{if(st==='SUBSCRIBED'){try{await pres.track({at:new Date().toISOString()})}catch(e){}}})}
-  paint()}
+let ch=null,cur,q=Promise.resolve();
+function begin(s,force){
+  const id=s&&s.user?s.user.id:null;
+  q=q.then(async()=>{
+    HAS=!!id;EMAIL=((s&&s.user&&s.user.email)||'').toLowerCase();
+    if(!force&&id===cur&&(ch||!id||!share())){paint();return}
+    cur=id;UID=id;
+    if(ch){const c=ch;ch=null;try{await sb.removeChannel(c)}catch(e){}}
+    ON.clear();
+    if(id&&share()){
+      const c=sb.channel('comish-presence-v3',{config:{presence:{key:id}}});ch=c;
+      c.on('presence',{event:'sync'},()=>{ON.clear();Object.keys(c.presenceState()).forEach(k=>ON.add(k));paint()})
+       .subscribe(async st=>{if(st==='SUBSCRIBED'){try{await c.track({at:new Date().toISOString()})}catch(e){}}})}
+    if(id){beat();loadInts();setTimeout(refresh,800)}
+    paint()}).catch(()=>{})}
 sb.auth.getSession().then(({data})=>begin(data.session));
 sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')begin(s)});
+setInterval(beat,60000);setInterval(()=>{if(UID&&!document.hidden)refresh()},30000);
 
-/* Botón para mostrar u ocultar tu estado activo (si lo ocultas, tampoco ves el de los demás) */
-const R10=R_;R_=function(){R10();
-  const pf=document.querySelector('#perfil .pf');if(!pf)return;
-  let b=document.getElementById('pres');
-  if(!b){b=document.createElement('button');b.id='pres';b.type='button';b.className='sx';const lo=document.getElementById('lo');if(lo)pf.insertBefore(b,lo);else pf.appendChild(b)}
-  const t='Estado activo: '+(share()?'visible':'oculto')+' (toca para cambiar)';if(b.textContent!==t)b.textContent=t};
-document.getElementById('app').addEventListener('click',e=>{
-  if(!e.target.closest('#pres'))return;
-  try{localStorage.setItem('comish_pres',share()?'off':'on')}catch(er){}
-  sb.auth.getSession().then(({data})=>begin(data.session));R_();
-  toast(share()?'Ahora se ve cuando estás activo':'Tu estado activo está oculto (tampoco ves el de los demás)')});
+/* ---------- Etiquetas: guardar / cargar ---------- */
+async function saveInts(){if(!UID)return;W('comish_ints_'+UID,JSON.stringify(INT));
+  const r=await sb.from('profiles').update({artist_tags:INT.a,interest_tags:INT.i}).eq('id',UID);
+  if(r.error){console.warn('etiquetas:',r.error.message);toast('Guardadas en este dispositivo. Falta ejecutar el SQL de etiquetas en Supabase.')}}
+async function loadInts(){if(!UID)return;
+  const c=L('comish_ints_'+UID);if(c){try{INT=JSON.parse(c)}catch(e){}}
+  const r=await sb.from('profiles').select('artist_tags,interest_tags').eq('id',UID).maybeSingle();
+  if(!r.error&&r.data){INT={a:r.data.artist_tags||[],i:r.data.interest_tags||[]};W('comish_ints_'+UID,JSON.stringify(INT))}
+  const pd=L('comish_pending');
+  if(pd){try{const o=JSON.parse(pd);if(o.email===EMAIL){INT={a:o.a||[],i:o.i||[]};localStorage.removeItem('comish_pending');await saveInts()}}catch(e){}}
+  R_()}
+
+/* ---------- Selector de etiquetas ---------- */
+let PA=new Set(),PI=new Set();
+const grp=(l,sel)=>TG.map(([g,arr])=>'<div class="sg">'+g+'</div><div class="trk">'+arr.map(([lb,k])=>'<button type="button" class="tg'+(sel.has(k)?' on':'')+'" data-s="tg" data-l="'+l+'" data-k="'+E(k)+'">'+E(lb)+'</button>').join('')+'</div>').join('');
+const secs=role=>{let h='';
+  if(role!=='Comprador')h+='<h2 class="eh">¿Qué tipo de artista eres?</h2><p class="sub">Elige hasta 12: así te encuentran quienes buscan tu estilo.</p>'+grp('a',PA);
+  if(role!=='Vendedor')h+='<h2 class="eh">¿Qué arte te gustaría comisionar?</h2><p class="sub">Elige hasta 12: personalizamos tu feed con esto.</p>'+grp('i',PI);
+  return h};
+
+/* Pantalla de etiquetas después de elegir Vendedor / Comprador / Ambos */
+const E1=document.createElement('section');E1.id='etq';E1.className='s o';
+E1.innerHTML='<button class="back" id="etqb" type="button" aria-label="Volver">'+$('#crear .back').innerHTML+'</button>'+$('#crear .tile').outerHTML+
+  '<div class="pad"><h1 style="line-height:1.15">Personaliza tu perfil</h1><div id="etqc"></div><button class="pb" id="etqgo" type="button" style="opacity:1">Continuar</button><button class="sx" id="etqskip" type="button">Omitir por ahora</button></div>';
+$('#app').insertBefore(E1,$('#feed'));
+$('#etqb').onclick=()=>go('rol');
+function openEtq(){const card=$('#rol .card.on'),role=card?card.dataset.r:'Ambos';
+  PA=new Set();PI=new Set();$('#etqc').innerHTML=secs(role);go('etq');$('#etq .pad').scrollTop=0}
+function finishEtq(save){
+  if(save)W('comish_pending',JSON.stringify({email:($('#em').value||'').trim().toLowerCase(),a:[...PA],i:[...PI]}));
+  else{try{localStorage.removeItem('comish_pending')}catch(e){}}
+  window.__tgok=true;go('rol');$('#rc').click();window.__tgok=false}
+$('#etqgo').onclick=()=>finishEtq(true);
+$('#etqskip').onclick=()=>finishEtq(false);
+$('#app').addEventListener('click',e=>{const b=e.target.closest('#rc');if(!b||window.__tgok)return;
+  e.stopImmediatePropagation();e.preventDefault();openEtq()},true);
+
+/* ---------- Ajustes (engranaje) ---------- */
+const GEAR='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
+const row=(t,s,a)=>'<button type="button" class="row2" data-s="'+a+'"><b>'+t+'</b><span>'+s+'</span></button>';
+function settings(){
+  const role=D.role||'Ambos',hue=D.hue==null?13:D.hue,pf=L('comish_pfeed')!=='off',n=INT.a.length+INT.i.length;
+  M('<h3>Ajustes</h3><small style="opacity:.5">versión 14</small>'+
+    '<div class="sg">Cuenta</div>'+
+    row('Editar usuario','@'+E(D.user),'user')+
+    '<button type="button" class="row2" data-a="edit"><b>Nombre artístico y descripción</b><span>Cambia cómo te ven los demás</span></button>'+
+    row('Cambiar contraseña','Actualiza tu clave de acceso','pass')+
+    '<div class="sg">Intereses</div>'+
+    row('Mis etiquetas',n?n+' etiquetas elegidas':'Aún no has elegido etiquetas','tags')+
+    row('Personalizar mi feed',pf?'Activado: verás primero lo que te interesa':'Desactivado (se aplica al recargar)','feedp')+
+    '<div class="sg">Apariencia</div><label>Color de acento<input type="range" id="sethue" min="0" max="360" value="'+hue+'" style="accent-color:#121214"></label>'+
+    '<div class="sg">Privacidad</div>'+
+    row('Estado activo',share()?'Visible: se muestra el punto verde cuando estás en línea':'Oculto (tampoco ves el de los demás)','pres')+
+    (role!=='Comprador'?'<button type="button" class="row2" data-a="ver"><b>Verificación de artista</b><span>'+VS[D.ver]+'</span></button>':'')+
+    '<div class="sg">Seguridad y confianza</div><div class="bb sm"><button type="button" data-a="rep" data-w="vendedor">Denunciar vendedor</button><button type="button" data-a="rep" data-w="comprador">Denunciar comprador</button></div>'+
+    '<button type="button" class="pb2" data-s="logout" style="background:#B0432B">Cerrar sesión</button><button type="button" class="sx" data-a="x">Cerrar</button>')}
+
+async function saveUser(){const v=($('#nu').value||'').trim().toLowerCase(),m=$('#num');
+  if(!/^[a-z0-9_.]{3,20}$/.test(v))return m.textContent='Usa 3 a 20 caracteres: letras, números, _ y .';
+  if(v===D.user)return settings();
+  const ex=await sb.from('profiles').select('id').eq('username',v).maybeSingle();
+  if(ex.data&&ex.data.id!==UID)return m.textContent='Ese usuario ya existe.';
+  const r=await sb.from('profiles').update({username:v}).eq('id',UID);
+  if(r.error)return m.textContent=/duplicate|unique/i.test(r.error.message)?'Ese usuario ya existe.':'No se pudo cambiar: '+r.error.message;
+  D.user=v;S();toast('Usuario actualizado');setTimeout(()=>location.reload(),800)}
+async function savePass(){const a=$('#np1').value,b=$('#np2').value,m=$('#npm');
+  if(a.length<8||a.length>64||!/[A-Za-z]/.test(a)||!/\d/.test(a))return m.textContent='Entre 8 y 64 caracteres, con letras y números.';
+  if(a!==b)return m.textContent='Las contraseñas no coinciden.';
+  const r=await sb.auth.updateUser({password:a});if(r.error)return m.textContent=r.error.message;
+  toast('Contraseña actualizada');settings()}
+
+const back='<button type="button" class="sx" data-s="open">Volver a ajustes</button>';
+const SA={
+  open:()=>settings(),
+  user:()=>M('<h3>Editar usuario</h3><label>Nuevo usuario<input id="nu" class="f2" maxlength="20" value="'+E(D.user)+'" autocapitalize="none"></label><small style="text-align:left">3 a 20 caracteres: letras, números, _ y .</small><div id="num" class="cp" role="alert"></div><button type="button" class="pb2" data-s="saveuser">Guardar usuario</button>'+back),
+  saveuser:()=>saveUser(),
+  pass:()=>{M('<h3>Cambiar contraseña</h3><label>Nueva contraseña<input id="np1" class="f2" type="password" autocomplete="new-password" maxlength="64"></label><label>Repite la contraseña<input id="np2" class="f2" type="password" autocomplete="new-password" maxlength="64"></label><div id="npm" class="cp" role="alert"></div><button type="button" class="pb2" data-s="savepass">Guardar contraseña</button>'+back);},
+  savepass:()=>savePass(),
+  tags:()=>{const role=D.role||'Ambos';PA=new Set(INT.a);PI=new Set(INT.i);
+    M('<h3>Mis etiquetas</h3>'+secs(role)+'<button type="button" class="pb2" data-s="savetags">Guardar etiquetas</button>'+back)},
+  savetags:async()=>{INT={a:[...PA],i:[...PI]};await saveInts();R_();settings();toast('Etiquetas guardadas')},
+  tg:(d,el)=>{const s=d.l==='a'?PA:PI;if(s.has(d.k))s.delete(d.k);else{if(s.size>=12)return toast('Máximo 12 etiquetas');s.add(d.k)}el.classList.toggle('on',s.has(d.k))},
+  feedp:()=>{const on=L('comish_pfeed')!=='off';W('comish_pfeed',on?'off':'on');R_();settings();if(on)toast('Se aplicará al recargar')},
+  pres:()=>{W('comish_pres',share()?'off':'on');sb.auth.getSession().then(({data})=>begin(data.session,true));beat();R_();settings();
+    toast(share()?'Ahora se ve cuando estás activo':'Tu estado activo está oculto')},
+  logout:async()=>{const b=document.getElementById('lo');if(b){b.click();return}
+    await sb.auth.signOut();try{localStorage.removeItem('comish_v1')}catch(e){}location.reload()}
+};
+$('#app').addEventListener('click',e=>{const t=e.target.closest('[data-s]');if(!t)return;const f=SA[t.dataset.s];if(f){e.preventDefault();f(t.dataset,t)}});
+document.addEventListener('input',e=>{if(e.target.id!=='sethue')return;const h=$('#hue');h.value=e.target.value;h.dispatchEvent(new Event('input',{bubbles:true}))});
+
+/* ---------- Después de cada render: feed personalizado, engranaje, etiquetas en el perfil ---------- */
+const Rp=R_;
+R_=function(){
+  if(Array.isArray(D.posts)&&L('comish_pfeed')!=='off'&&(INT.a.length||INT.i.length)){
+    const set=new Set([...INT.a,...INT.i]),sc=p=>(p.tags||[]).reduce((n,t)=>n+(set.has(t)?1:0),0);
+    D.posts=D.posts.map((p,i)=>[p,i]).sort((x,y)=>sc(y[0])-sc(x[0])||x[1]-y[1]).map(x=>x[0])}
+  Rp();
+  const bn=$('#bn');
+  if(bn&&!bn.querySelector('.gear')){const g=document.createElement('button');g.type='button';g.className='gear';g.dataset.s='open';g.setAttribute('aria-label','Ajustes');g.innerHTML=GEAR;bn.appendChild(g)}
+  $$('#perfil .sec').forEach(s=>{if(s.textContent.trim()==='Seguridad y confianza'){s.style.display='none';if(s.nextElementSibling)s.nextElementSibling.style.display='none'}});
+  const pf=$('#perfil .pf');
+  if(pf){let g=$('#itg');if(!g){g=document.createElement('div');g.id='itg';g.className='soc';(($('#soc')||$('#bio')).after(g))}
+    const h=[...INT.a.map(k=>'<span>'+E(LBL[k]||k)+'</span>'),...INT.i.map(k=>'<span>♥ '+E(LBL[k]||k)+'</span>')].join('');
+    if(g.dataset.h!==h){g.dataset.h=h;g.innerHTML=h}}
+  paint()};
 R_();
 })();
 </script>
-</body></html>
+<!-- ===== v14: perfil compacto, panel de estadísticas, compartidos sin repetir en el inicio ===== -->
+<style>
+#gest{width:100%;margin-top:6px;border:1.5px solid #E2D3C2;border-radius:16px;background:#fff;overflow:hidden}
+#gest>summary{list-style:none;cursor:pointer;padding:12px 14px;font:600 16px Fraunces,serif;display:flex;align-items:center;justify-content:space-between}
+#gest>summary::-webkit-details-marker{display:none}
+#gest>summary::after{content:'▾';font-size:14px;opacity:.6;transition:transform .2s}
+#gest[open]>summary::after{transform:rotate(180deg)}
+#gest>summary small{font:500 12px 'Plus Jakarta Sans',sans-serif;opacity:.65;display:block;margin-top:2px}
+#gest .gb{padding:0 12px 12px;display:flex;flex-direction:column;gap:8px}
+#gest .sec{font-size:15px;margin:6px 0 0}
+#gest .row2{padding:9px 12px}
+#gest .pc{padding:8px}
+#perfil .stats,#perfil #xp{display:none!important}
+#st14{width:100%;display:flex;flex-direction:column;gap:8px;margin:2px 0 4px}
+#st14 .top{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center}
+#st14 .top span,#st14 .rt{padding:5px 12px;border-radius:999px;background:#F9D3B4;font:700 13px 'Plus Jakarta Sans',sans-serif;border:0;color:#121214}
+#st14 .rt{cursor:pointer;background:#FFF3E8;border:1.5px solid #E2D3C2}
+#st14 .rt i{font-style:normal;color:#D99A0B;letter-spacing:1px}
+#st14 .g,.pps.n14{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+#st14 .g div,.pps.n14 div{background:#fff;border:1.5px solid #E2D3C2;border-radius:14px;padding:7px 4px}
+#st14 .g b,.pps.n14 b{display:block;font:700 17px 'Plus Jakarta Sans',sans-serif;line-height:1.2}
+#st14 .g small,.pps.n14 small{font-size:11.5px;font-weight:600;opacity:.75}
+.pps.n14 .rs14{color:#D99A0B}
+#sh .ppb{height:64px}
+#sh .ppa{width:72px;height:72px;margin-top:-38px;font-size:26px}
+#sh .ppb+.ppa+h3{margin:4px 0 0}
+#perfil .pf{gap:4px}
+</style>
+<script>
+(()=>{
+if(window.__f14)return;window.__f14=1;
+const sb=window.sb;if(!sb)return;
+let UID=null,T=0,busyR=false;
+const S14={fs:0,fg:0,lk:0,rv:[]};
+const star5=a=>{const r=Math.round(a);return '★'.repeat(r)+'☆'.repeat(5-r)};
+
+/* ---- Datos reales desde la base ---- */
+async function refresh14(force){
+  if(!UID||busyR)return;if(!force&&Date.now()-T<8000)return;busyR=true;T=Date.now();
+  try{
+    const mp=await sb.from('posts').select('id').eq('user_id',UID);
+    const ids=(mp.data||[]).map(x=>x.id);
+    const [a,b,c,d]=await Promise.all([
+      sb.from('follows').select('follower_id',{count:'exact',head:true}).eq('following_id',UID),
+      sb.from('follows').select('following_id',{count:'exact',head:true}).eq('follower_id',UID),
+      ids.length?sb.from('likes').select('post_id',{count:'exact',head:true}).in('post_id',ids):{count:0},
+      sb.from('reviews').select('stars,body,created_at').eq('reviewee_id',UID).order('created_at',{ascending:false}).limit(50)]);
+    S14.fs=a.count||0;S14.fg=b.count||0;S14.lk=c.count||0;S14.rv=d.data||[];
+  }catch(e){}
+  busyR=false;paint14()}
+
+/* ---- Panel de estadísticas propio ---- */
+function paint14(){
+  const pf=document.querySelector('#perfil .pf');if(!pf||typeof D==='undefined')return;
+  let p=document.getElementById('st14');
+  if(!p){p=document.createElement('div');p.id='st14';const ds=document.getElementById('dsec');if(ds)ds.before(p);else pf.appendChild(p)}
+  const xp=document.querySelector('#xp span'),pl=xp?xp.textContent.replace(/^⭐\s*/,''):'0 pts · Nuevo',n=S14.rv.length,avg=n?S14.rv.reduce((s,r)=>s+r.stars,0)/n:0;
+  const obras=D.posts.filter(x=>x.by=='@'+D.user).length||+((document.getElementById('no')||{}).textContent)||0;
+  const enc=D.orders?D.orders.length:0;
+  const h='<div class="top"><span>⭐ '+E(pl)+'</span>'+
+   '<button type="button" class="rt" data-v="rv" aria-label="Ver mis reseñas">'+(n?'<i>'+star5(avg)+'</i> '+avg.toFixed(1)+' · '+n+(n==1?' reseña':' reseñas'):'<i>☆☆☆☆☆</i> Sin reseñas')+'</button></div>'+
+   '<div class="g"><div><b>'+S14.fs+'</b><small>Seguidores</small></div><div><b>'+(S14.fg||D.fol.length)+'</b><small>Siguiendo</small></div><div><b>'+S14.lk+'</b><small>Likes</small></div>'+
+   '<div><b>'+D.shares.length+'</b><small>Compartidos</small></div><div><b>'+obras+'</b><small>Obras</small></div><div><b>'+enc+'</b><small>Encargos</small></div></div>';
+  if(p.dataset.h!==h){p.dataset.h=h;p.innerHTML=h}}
+
+/* ---- Tablas, cobros y encargos: plegados en una sola sección ---- */
+function fold(){
+  const pf=document.querySelector('#perfil .pf');if(!pf)return;
+  let g=document.getElementById('gest');
+  if(!g){
+    const hls=document.getElementById('hls'),pcc=document.getElementById('pcc'),os=document.getElementById('osec');
+    if(!hls||!pcc||!os)return;
+    const sec=hls.previousElementSibling;
+    g=document.createElement('details');g.id='gest';
+    g.innerHTML='<summary><span>Mi negocio<small>Tablas de precios, cobros y encargos</small></span></summary><div class="gb"></div>';
+    const body=g.querySelector('.gb');
+    pf.insertBefore(g,sec||hls);
+    [sec,hls,pcc,os].forEach(el=>el&&body.appendChild(el))}
+  /* siempre al final, después de obras y publicaciones */
+  const rps=document.getElementById('rps');if(rps&&g.previousElementSibling!==rps)rps.after(g);
+  const sub=g.querySelector('summary small');
+  if(sub&&typeof D!=='undefined'){const t='Tablas de precios ('+D.prices.length+'), cobros y encargos ('+(D.orders?D.orders.length:0)+')';if(sub.textContent!==t)sub.textContent=t}}
+
+/* ---- Modal de reseñas recibidas ---- */
+document.getElementById('app').addEventListener('click',e=>{
+  const b=e.target.closest('[data-v="rv"]');if(!b)return;
+  const R=S14.rv,n=R.length,avg=n?R.reduce((s,r)=>s+r.stars,0)/n:0;
+  M('<h3>Mis reseñas</h3>'+(n?'<p class="cp" style="text-align:center"><span class="stars" style="font-size:22px">'+star5(avg)+'</span><br><b>'+avg.toFixed(1)+'</b> de 5 · '+n+(n==1?' reseña':' reseñas')+'</p>'+
+    R.map(r=>'<div class="rvw"><span class="stars" aria-label="'+r.stars+' de 5 estrellas">'+stars(r.stars)+'</span> '+E(r.body||'')+'<br><small style="opacity:.6">'+new Date(r.created_at).toLocaleDateString('es')+'</small></div>').join(''):'<p class="emp">Todavía no tienes reseñas. Aparecen cuando completas un encargo.</p>')+
+    '<button type="button" class="sx" data-a="x">Cerrar</button>')});
+document.getElementById('app').addEventListener('click',e=>{if(e.target.closest('[data-q="fol"]')||e.target.closest('[data-x="lk"]')||e.target.closest('[data-x="sh"]'))setTimeout(()=>refresh14(true),900)});
+
+/* ---- Perfil público de otro usuario: mismas estadísticas + compartidos ---- */
+async function pub(pps){
+  const fol=document.querySelector('#sh [data-q="fol"][data-id]');if(!fol)return;const pid=fol.dataset.id;
+  const cells=[...pps.children];if(cells.length<4)return;
+  const v=i=>(cells[i].querySelector('b')||{}).textContent||'0',rvTxt=(cells[3].querySelector('small')||{}).textContent||'0 reseñas',rate=v(3);
+  const mp=await sb.from('posts').select('id').eq('user_id',pid),ids=(mp.data||[]).map(x=>x.id);
+  const [lk,sh]=await Promise.all([ids.length?sb.from('likes').select('post_id',{count:'exact',head:true}).in('post_id',ids):{count:0},
+    sb.from('shares').select('post_id').eq('user_id',pid)]);
+  const sids=(sh.data||[]).map(x=>x.post_id);
+  let sp=[];if(sids.length){const r=await sb.from('posts').select('id,title,image_url').in('id',sids).limit(30);sp=r.data||[]}
+  if(!document.body.contains(pps))return;
+  const a=parseFloat(rate),has=!isNaN(a);
+  pps.className='pps n14';
+  pps.innerHTML='<div><b>'+v(0)+'</b><small>Seguidores</small></div><div><b>'+v(1)+'</b><small>Siguiendo</small></div><div><b>'+v(2)+'</b><small>Obras</small></div>'+
+    '<div><b>'+(lk.count||0)+'</b><small>Likes</small></div><div><b>'+sp.length+'</b><small>Compartidos</small></div>'+
+    '<div><b class="rs14">'+(has?'★ '+a.toFixed(1):'☆ —')+'</b><small>'+E(rvTxt)+'</small></div>';
+  const host=document.getElementById('sh'),close=[...host.children].filter(x=>x.matches&&x.matches('button.sx')).pop(),rvh=[...host.querySelectorAll('.sg')].find(x=>x.textContent.trim()==='Reseñas');
+  const box=document.createElement('div');box.id='pp14';
+  box.innerHTML='<div class="sg">Compartidos</div>'+(sp.length?'<div class="xg">'+sp.map(x=>'<div style="background:url('+E(x.image_url)+') center/cover"><em>'+E(x.title)+'</em></div>').join('')+'</div>':'<p class="emp">Aún no ha compartido obras de otros.</p>');
+  const ref=rvh||close;if(ref)ref.before(box);else host.appendChild(box)}
+new MutationObserver(()=>{
+  const pps=document.querySelector('#sh .pps:not(.n14)');
+  if(pps&&!pps.dataset.p14){pps.dataset.p14=1;pub(pps).catch(()=>{})}
+}).observe(document.getElementById('sh'),{childList:true,subtree:true});
+
+/* ---- Enganche al render del perfil y a la sesión ---- */
+const Rp=R_;
+R_=function(){Rp();fold();paint14();refresh14(false)};
+function begin(s){UID=s&&s.user?s.user.id:null;T=0;if(UID)refresh14(true)}
+sb.auth.getSession().then(({data})=>begin(data.session));
+sb.auth.onAuthStateChange((ev,s)=>{if(ev==='SIGNED_IN'||ev==='SIGNED_OUT')begin(s)});
+setInterval(()=>{if(UID&&!document.hidden)refresh14(true)},45000);
+R_();
+})();
+</script>
+<script>console.log("Comish index v14")</script></body></html>
