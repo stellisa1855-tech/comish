@@ -634,7 +634,7 @@ async function hydrate(session){
   if(!pr){const meta=session.user.user_metadata||{},un=(meta.username||('user'+UID.slice(0,8))).toLowerCase();
     const r=await sb.from('profiles').upsert({id:UID,username:un,display_name:meta.username||null,role:meta.role||'Ambos'},{onConflict:'id'}).select().maybeSingle();pr=r.data}
   if(!pr){toast('No se pudo cargar tu perfil');return}
-  D.user=pr.username;D.role=pr.role||'Ambos';D.name=pr.display_name||'';D.bio=pr.bio||'';D.av=pr.avatar_url||'';D.st=pr.status||0;
+  D.user=pr.username;D.role=pr.role||'Ambos';D.name=pr.display_name||'';D.bio=pr.bio||'';D.av=pr.avatar_url||'';D.st=pr.status||0;D.ver=pr.is_artist_verified?2:0;
   D.hue=pr.accent;if(pr.accent!=null){document.documentElement.style.setProperty('--ac','hsl('+pr.accent+' 70% 66%)');$('#hue').value=pr.accent}
   D.bn=pr.banner?(/^https?:/.test(pr.banner)?{c:'',u:pr.banner}:{c:pr.banner,u:''}):{c:'',u:''};
   D.soc=pr.socials||{};
@@ -2291,5 +2291,370 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('#etqgo,#etqskip');if(!b)return;
   e.stopImmediatePropagation();e.preventDefault();signup(b.id==='etqgo')},true);
 })();
+</script>
+
+<style>#admin .adm-head{min-height:88px}#admin .adm-scroll a{color:#75432F}</style>
+<script>
+/* ===== COMISH · PANEL ADMINISTRATIVO =====
+   Requiere ejecutar Comish_admin_panel_v2.sql y dar de alta el primer administrador.
+   No expone claves privilegiadas en el navegador.
+*/
+(()=>{
+  if(window.__comishAdminPanelV2) return;
+  window.__comishAdminPanelV2 = true;
+  const sb = window.sb;
+  if(!sb) return;
+
+  const app = document.getElementById('app');
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const dateText = value => value ? new Date(value).toLocaleString('es-ES',{dateStyle:'medium',timeStyle:'short'}) : '—';
+  const statusText = value => ({pending:'Pendiente',in_review:'En revisión',resolved:'Resuelta',dismissed:'Descartada',approved:'Aprobada',rejected:'Rechazada',needs_info:'Falta información'}[value] || value || '—');
+  const statusClass = value => ['resolved','approved'].includes(value) ? 'good' : ['dismissed','rejected'].includes(value) ? 'muted' : 'wait';
+  const panel = document.createElement('section');
+  panel.id = 'admin';
+  panel.className = 's adm-page';
+  panel.innerHTML = `
+    <header class="adm-head">
+      <div><div class="adm-kicker">COMISH · EQUIPO</div><h1>Administración</h1><p>Centro de control y moderación</p></div>
+      <button class="adm-close" type="button" data-adm="close" aria-label="Volver al perfil">✕</button>
+    </header>
+    <nav class="adm-tabs" aria-label="Secciones administrativas">
+      <button type="button" data-adm-tab="overview" class="on">Resumen</button>
+      <button type="button" data-adm-tab="users">Usuarios</button>
+      <button type="button" data-adm-tab="reports">Denuncias</button>
+      <button type="button" data-adm-tab="verifications">Verificaciones</button>
+      <button type="button" data-adm-tab="activity">Actividad</button>
+    </nav>
+    <div class="adm-scroll" id="adm-content"><p class="adm-loading">Comprobando permisos administrativos…</p></div>`;
+  app.insertBefore(panel, document.getElementById('md'));
+
+  const css = document.createElement('style');
+  css.textContent = `
+    #admin{background:#FFFDF9;color:#121214;z-index:8}
+    #admin .adm-head{display:flex;align-items:flex-start;justify-content:space-between;padding:22px 20px 14px;background:#FFF3E8;border-bottom:1px solid #EADFD3;flex:none}
+    #admin .adm-kicker{font-size:10px;font-weight:800;letter-spacing:1.5px;opacity:.62}
+    #admin .adm-head h1{font:600 30px Fraunces,serif;margin:3px 0 0}
+    #admin .adm-head p{font-size:12px;margin:3px 0 0;opacity:.68}
+    #admin .adm-close{width:38px;height:38px;border:2px solid #121214;border-radius:50%;background:transparent;font-size:18px;cursor:pointer}
+    #admin .adm-tabs{display:flex;gap:7px;padding:11px 14px;overflow-x:auto;border-bottom:1px solid #EADFD3;flex:none;background:#fff}
+    #admin .adm-tabs button{flex:none;border:0;border-radius:999px;padding:9px 13px;background:#F9D3B4;font-size:12px;font-weight:700;cursor:pointer}
+    #admin .adm-tabs button.on{background:#121214;color:#FFFDF9}
+    #admin .adm-scroll{flex:1;overflow:auto;padding:15px 16px 30px;overscroll-behavior:contain}
+    #admin .adm-title{font:600 21px Fraunces,serif;margin:2px 0 5px}
+    #admin .adm-sub{font-size:12px;line-height:1.45;opacity:.7;margin:0 0 13px}
+    #admin .adm-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0 18px}
+    #admin .adm-metric{background:#FFF3E8;border:1px solid #EADFD3;border-radius:18px;padding:13px}
+    #admin .adm-metric b{display:block;font:600 26px Fraunces,serif}
+    #admin .adm-metric span{font-size:11px;font-weight:700;opacity:.72}
+    #admin .adm-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    #admin .adm-btn{border:0;border-radius:999px;background:#121214;color:#FFFDF9;padding:11px 15px;font-size:12px;font-weight:700;cursor:pointer}
+    #admin .adm-btn.alt{background:#F9D3B4;color:#121214}
+    #admin .adm-btn:disabled{opacity:.5;cursor:wait}
+    #admin .adm-search{display:flex;gap:7px;margin:12px 0}
+    #admin .adm-search input{min-width:0;flex:1;border:1px solid #E2D3C2;background:#fff;border-radius:14px;padding:11px 12px;font-size:13px}
+    #admin .adm-row{display:block;width:100%;border:1px solid #E2D3C2;background:#fff;border-radius:16px;padding:12px 13px;text-align:left;margin:8px 0;cursor:pointer;color:#121214}
+    #admin .adm-row b{font:600 15px Fraunces,serif;display:block;margin-bottom:4px;overflow-wrap:anywhere}
+    #admin .adm-row small{display:block;font-size:11px;line-height:1.5;opacity:.72;overflow-wrap:anywhere}
+    #admin .adm-pill{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:800;background:#F9D3B4;margin:3px 4px 0 0}
+    #admin .adm-pill.good{background:#C9D8CD}#admin .adm-pill.muted{background:#EADFD3}
+    #admin .adm-detail{background:#FFF3E8;border:1px solid #E2D3C2;border-radius:18px;padding:14px;margin:13px 0}
+    #admin .adm-detail h3{font:600 19px Fraunces,serif;margin:0 0 10px}
+    #admin .adm-detail p{font-size:12px;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap}
+    #admin .adm-detail label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:700;margin:10px 0}
+    #admin .adm-detail input,#admin .adm-detail select,#admin .adm-detail textarea{width:100%;border:1px solid #D9C9B9;background:#fff;border-radius:12px;padding:10px;font:500 13px 'Plus Jakarta Sans',sans-serif;color:#121214}
+    #admin .adm-detail textarea{min-height:86px;resize:vertical}
+    #admin .adm-link{font-size:12px;font-weight:700;color:#75432F;word-break:break-all}
+    #admin .adm-empty,#admin .adm-loading{font-size:12px;line-height:1.55;padding:14px;border-radius:14px;background:#F7F1E9;opacity:.78}
+    #admin .adm-error{font-size:12px;line-height:1.5;padding:12px;border-radius:14px;background:#FCE6E0;color:#8B2F1B;margin:10px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+    #admin .adm-ok{font-size:12px;padding:10px;border-radius:12px;background:#E1EEE4;color:#245C39;margin:10px 0}
+    #comish-admin-launch{border:2px solid #121214!important;background:#FFF3E8!important;color:#121214!important}
+    #comish-admin-launch:before{content:'⚙';margin-right:8px}
+    @media(min-width:600px){#admin .adm-scroll{padding:18px 22px 32px}#admin .adm-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  `;
+  document.head.appendChild(css);
+
+  const state = {isAdmin:false,tab:'overview',users:[],reports:[],verifications:[],activity:[],selectedUser:null,selectedReport:null,selectedVerification:null};
+  const content = () => document.getElementById('adm-content');
+  const showError = (message) => { content().innerHTML = `<div class="adm-error">${esc(message)}</div><button class="adm-btn alt" data-adm="refresh">Intentar de nuevo</button>`; };
+  const rpcError = error => {
+    const msg = String(error?.message || error || 'Error desconocido');
+    if(/function .* does not exist|schema cache/i.test(msg)) return 'Falta ejecutar Comish_admin_panel_v2.sql en Supabase. Detalle: '+msg;
+    if(/permission|not authorized|administrativa/i.test(msg)) return 'Tu cuenta todavía no tiene permisos de administración. Debes agregarla a private.comish_admins desde SQL Editor.';
+    return msg;
+  };
+
+  function addAdminLaunch(){
+    const profile = document.querySelector('#perfil .pf');
+    if(!profile || !state.isAdmin) return;
+    let button = document.getElementById('comish-admin-launch');
+    if(!button){
+      button = document.createElement('button');
+      button.id = 'comish-admin-launch';
+      button.type = 'button';
+      button.className = 'row2';
+      button.innerHTML = '<b>Panel administrativo</b><span>Usuarios, denuncias y verificaciones</span>';
+      const anchor = profile.querySelector('.stats') || profile.firstElementChild;
+      anchor.insertAdjacentElement('afterend',button);
+    }
+    button.onclick = openPanel;
+  }
+  function removeAdminLaunch(){ document.getElementById('comish-admin-launch')?.remove(); }
+
+  async function refreshAdminAccess(sessionArg){
+    let session = sessionArg;
+    if(typeof sessionArg === 'undefined'){
+      const result = await sb.auth.getSession();
+      session = result.data?.session || null;
+    }
+    if(!session?.user?.id){ state.isAdmin=false; removeAdminLaunch(); return; }
+    const {data,error} = await sb.rpc('is_comish_admin');
+    state.isAdmin = !error && data === true;
+    if(state.isAdmin) addAdminLaunch(); else removeAdminLaunch();
+    if(document.getElementById('admin').classList.contains('on') && !state.isAdmin) go('perfil');
+  }
+
+  async function requireAdmin(){
+    const {data,error} = await sb.rpc('is_comish_admin');
+    if(error) throw new Error(rpcError(error));
+    if(data !== true) throw new Error('Tu cuenta no está autorizada para entrar al panel administrativo.');
+    state.isAdmin = true;
+    addAdminLaunch();
+  }
+
+  async function openPanel(){
+    try{
+      await requireAdmin();
+      state.tab='overview'; state.selectedUser=null; state.selectedReport=null; state.selectedVerification=null;
+      syncTabs(); go('admin'); await loadTab();
+    }catch(error){toast(rpcError(error));}
+  }
+  function syncTabs(){
+    panel.querySelectorAll('[data-adm-tab]').forEach(button=>button.classList.toggle('on',button.dataset.admTab===state.tab));
+  }
+  async function setTab(tab){
+    state.tab=tab;state.selectedUser=null;state.selectedReport=null;state.selectedVerification=null;syncTabs();await loadTab();
+  }
+  async function loadTab(){
+    content().innerHTML='<p class="adm-loading">Cargando información…</p>';
+    try{
+      await requireAdmin();
+      if(state.tab==='overview') return await loadOverview();
+      if(state.tab==='users') return await loadUsers();
+      if(state.tab==='reports') return await loadReports();
+      if(state.tab==='verifications') return await loadVerifications();
+      if(state.tab==='activity') return await loadActivity();
+    }catch(error){showError(rpcError(error));}
+  }
+
+  async function loadOverview(){
+    const {data,error}=await sb.rpc('comish_admin_dashboard_stats');
+    if(error) return showError(rpcError(error));
+    const s=data||{};
+    content().innerHTML=`
+      <h2 class="adm-title">Resumen de Comish</h2>
+      <p class="adm-sub">Indicadores consultados directamente desde Supabase.</p>
+      <div class="adm-metrics">
+        <div class="adm-metric"><b>${Number(s.total_users||0).toLocaleString('es')}</b><span>CUENTAS</span></div>
+        <div class="adm-metric"><b>${Number(s.total_profiles||0).toLocaleString('es')}</b><span>PERFILES</span></div>
+        <div class="adm-metric"><b>${Number(s.total_posts||0).toLocaleString('es')}</b><span>PUBLICACIONES</span></div>
+        <div class="adm-metric"><b>${Number(s.pending_reports||0).toLocaleString('es')}</b><span>DENUNCIAS PENDIENTES</span></div>
+        <div class="adm-metric"><b>${Number(s.reports_in_review||0).toLocaleString('es')}</b><span>DENUNCIAS EN REVISIÓN</span></div>
+        <div class="adm-metric"><b>${Number(s.pending_verifications||0).toLocaleString('es')}</b><span>VERIFICACIONES PENDIENTES</span></div>
+        <div class="adm-metric"><b>${Number(s.verified_artists||0).toLocaleString('es')}</b><span>ARTISTAS VERIFICADOS</span></div>
+      </div>
+      <div class="adm-actions"><button class="adm-btn" data-adm-tab="reports">Revisar denuncias</button><button class="adm-btn alt" data-adm-tab="verifications">Verificar artistas</button><button class="adm-btn alt" data-adm="refresh">Actualizar resumen</button></div>
+      <p class="adm-sub">La administración está protegida por permisos de base de datos. Ocultar esta pantalla no sustituye la seguridad RLS: cada consulta también se verifica en Supabase.</p>`;
+  }
+
+  async function loadUsers(){
+    const q = document.getElementById('adm-user-search')?.value?.trim() || '';
+    const {data,error}=await sb.rpc('comish_admin_list_users',{p_search:q,p_limit:40,p_offset:0});
+    if(error) return showError(rpcError(error));
+    state.users=data||[];
+    content().innerHTML=`
+      <h2 class="adm-title">Usuarios</h2><p class="adm-sub">Busca por nombre de usuario, nombre visible o correo. Los correos solo se muestran a administradores autorizados.</p>
+      <form class="adm-search" id="adm-user-form"><input id="adm-user-search" value="${esc(q)}" placeholder="Buscar usuario…" autocomplete="off"><button class="adm-btn" type="submit">Buscar</button></form>
+      <p class="adm-sub">Se muestran hasta 40 cuentas recientes por consulta.</p>
+      <div id="adm-user-list">${state.users.length?state.users.map(u=>`<button class="adm-row" type="button" data-adm-user="${esc(u.user_id)}"><b>@${esc(u.username||'sin-usuario')} · ${esc(u.display_name||u.username||'Sin nombre')}</b><small>${esc(u.email||'Sin correo visible')}<br>${esc(u.profile_role||'Sin rol')} · Alta: ${esc(dateText(u.joined_at))}</small><span class="adm-pill ${u.email_confirmed?'good':'wait'}">${u.email_confirmed?'Correo confirmado':'Correo sin confirmar'}</span><span class="adm-pill ${u.artist_verified?'good':'muted'}">${u.artist_verified?'Artista verificado':'Sin verificar'}</span><span class="adm-pill">${Number(u.posts_count||0)} publicaciones</span></button>`).join(''):'<p class="adm-empty">No encontramos cuentas con esa búsqueda.</p>'}</div>
+      ${state.selectedUser?renderUserDetail(state.selectedUser):''}`;
+  }
+  function renderUserDetail(id){
+    const u=state.users.find(row=>row.user_id===id);if(!u)return '';
+    return `<div class="adm-detail"><h3>Cuenta seleccionada</h3><p><b>Usuario:</b> @${esc(u.username)}<br><b>Nombre:</b> ${esc(u.display_name||'—')}<br><b>Correo:</b> ${esc(u.email||'—')}<br><b>Tipo de perfil:</b> ${esc(u.profile_role||'—')}<br><b>Fecha de alta:</b> ${esc(dateText(u.joined_at))}<br><b>Último acceso:</b> ${esc(dateText(u.last_sign_in_at))}<br><b>Correo confirmado:</b> ${u.email_confirmed?'Sí':'No'}<br><b>Artista verificado:</b> ${u.artist_verified?'Sí':'No'}<br><b>Publicaciones:</b> ${Number(u.posts_count||0)}</p><p>Esta primera versión permite consultar cuentas. La suspensión/bloqueo de inicio de sesión se añadirá mediante una función segura del servidor; no se simula desde el navegador.</p><button type="button" class="adm-btn alt" data-adm="clear-user">Cerrar detalle</button></div>`;
+  }
+
+  async function profilesFor(ids){
+    const unique=[...new Set((ids||[]).filter(Boolean))];
+    if(!unique.length)return {};
+    const {data,error}=await sb.from('profiles').select('id,username,display_name,role,avatar_url').in('id',unique);
+    if(error) throw error;
+    return Object.fromEntries((data||[]).map(p=>[p.id,p]));
+  }
+  async function signedEvidence(path){
+    if(!path)return '';
+    const {data,error}=await sb.storage.from('comish-private-evidence').createSignedUrl(path,300);
+    if(error) return '';
+    return data?.signedUrl||'';
+  }
+
+  async function loadReports(){
+    const {data,error}=await sb.from('user_reports').select('*').order('created_at',{ascending:false}).limit(60);
+    if(error) return showError(rpcError(error));
+    state.reports=data||[];
+    try{state.reportProfiles=await profilesFor(state.reports.flatMap(r=>[r.reporter_id,r.reported_user_id]));}catch(e){return showError(rpcError(e));}
+    let detail='';
+    if(state.selectedReport){
+      const r=state.reports.find(x=>x.id===state.selectedReport);
+      if(r){const signed=await signedEvidence(r.evidence_path);const pr=state.reportProfiles[r.reporter_id]||{},to=state.reportProfiles[r.reported_user_id]||{};
+        detail=`<div class="adm-detail"><h3>Detalle de la denuncia</h3><p><b>Denunciante:</b> @${esc(pr.username||'usuario')}<br><b>Cuenta denunciada:</b> @${esc(to.username||'usuario')}<br><b>Motivo:</b> ${esc(r.reason)}<br><b>Fecha:</b> ${esc(dateText(r.created_at))}<br><b>Descripción:</b><br>${esc(r.description||'Sin descripción')}</p>${signed?`<p><a class="adm-link" href="${esc(signed)}" target="_blank" rel="noopener">Abrir evidencia privada</a></p>`:''}<label>Estado<select id="adm-report-status"><option value="in_review" ${r.status==='in_review'?'selected':''}>En revisión</option><option value="resolved" ${r.status==='resolved'?'selected':''}>Resuelta</option><option value="dismissed" ${r.status==='dismissed'?'selected':''}>Descartada</option></select></label><label>Resolución / notas internas<textarea id="adm-report-resolution" maxlength="2000">${esc(r.resolution||'')}</textarea></label><button class="adm-btn" data-adm="save-report" data-id="${esc(r.id)}">Guardar decisión</button><button class="adm-btn alt" data-adm="clear-report">Cerrar detalle</button></div>`;
+      }
+    }
+    content().innerHTML=`<h2 class="adm-title">Denuncias</h2><p class="adm-sub">Casos reportados por usuarios. Las evidencias se abren mediante enlaces temporales privados.</p><div class="adm-actions"><button class="adm-btn alt" data-adm="reload-tab">Actualizar</button></div>${detail}<div>${state.reports.length?state.reports.map(r=>{const p=state.reportProfiles[r.reported_user_id]||{};return `<button class="adm-row" type="button" data-adm-report="${esc(r.id)}"><b>@${esc(p.username||'usuario')} · ${esc(r.reason)}</b><small>${esc(dateText(r.created_at))} · Reportada por @${esc((state.reportProfiles[r.reporter_id]||{}).username||'usuario')}</small><span class="adm-pill ${statusClass(r.status)}">${esc(statusText(r.status))}</span></button>`}).join(''):'<p class="adm-empty">Todavía no hay denuncias guardadas en la nube.</p>'}</div>`;
+  }
+
+  async function loadVerifications(){
+    const {data,error}=await sb.from('artist_verification_requests').select('*').order('created_at',{ascending:false}).limit(60);
+    if(error) return showError(rpcError(error));
+    state.verifications=data||[];
+    try{state.verificationProfiles=await profilesFor(state.verifications.map(r=>r.user_id));}catch(e){return showError(rpcError(e));}
+    let detail='';
+    if(state.selectedVerification){
+      const v=state.verifications.find(x=>x.id===state.selectedVerification);
+      if(v){const signed=await signedEvidence(v.evidence_path),p=state.verificationProfiles[v.user_id]||{};
+        detail=`<div class="adm-detail"><h3>Solicitud de verificación</h3><p><b>Artista:</b> @${esc(p.username||'usuario')}<br><b>Nombre:</b> ${esc(p.display_name||'—')}<br><b>Fecha:</b> ${esc(dateText(v.created_at))}<br><b>Enlace de portafolio:</b> ${v.portfolio_url?`<a class="adm-link" href="${esc(v.portfolio_url)}" target="_blank" rel="noopener">${esc(v.portfolio_url)}</a>`:'No proporcionado'}<br><b>Nota del artista:</b><br>${esc(v.note||'Sin nota')}</p>${signed?`<p><a class="adm-link" href="${esc(signed)}" target="_blank" rel="noopener">Abrir evidencia privada</a></p>`:''}<label>Decisión<select id="adm-ver-status"><option value="approved">Aprobar verificación</option><option value="rejected">Rechazar</option><option value="needs_info">Solicitar más información</option></select></label><label>Nota para el artista<textarea id="adm-ver-note" maxlength="2000">${esc(v.review_note||'')}</textarea></label><button class="adm-btn" data-adm="save-verification" data-id="${esc(v.id)}">Guardar decisión</button><button class="adm-btn alt" data-adm="clear-verification">Cerrar detalle</button></div>`;
+      }
+    }
+    content().innerHTML=`<h2 class="adm-title">Verificaciones</h2><p class="adm-sub">Revisa portafolios y pruebas de autoría. Al aprobar, la insignia se guarda en el perfil de Comish.</p><div class="adm-actions"><button class="adm-btn alt" data-adm="reload-tab">Actualizar</button></div>${detail}<div>${state.verifications.length?state.verifications.map(v=>{const p=state.verificationProfiles[v.user_id]||{};return `<button class="adm-row" type="button" data-adm-verification="${esc(v.id)}"><b>@${esc(p.username||'usuario')} · Solicitud de artista</b><small>${esc(dateText(v.created_at))} · ${esc(v.portfolio_url||'Sin enlace de portafolio')}</small><span class="adm-pill ${statusClass(v.status)}">${esc(statusText(v.status))}</span></button>`}).join(''):'<p class="adm-empty">Todavía no hay solicitudes de verificación guardadas en la nube.</p>'}</div>`;
+  }
+
+  async function loadActivity(){
+    const {data,error}=await sb.rpc('comish_admin_recent_activity',{p_limit:60});
+    if(error) return showError(rpcError(error));
+    state.activity=data||[];
+    content().innerHTML=`<h2 class="adm-title">Actividad administrativa</h2><p class="adm-sub">Historial de decisiones registradas por Supabase.</p>${state.activity.length?state.activity.map(a=>`<div class="adm-row"><b>${esc(a.action==='report_reviewed'?'Revisión de denuncia':a.action==='verification_reviewed'?'Revisión de verificación':a.action)}</b><small>Administrador: @${esc(a.admin_username||'administración')}<br>Cuenta relacionada: @${esc(a.target_username||'—')}<br>${esc(dateText(a.created_at))}<br>Resultado: ${esc(a.details?.status||'—')} · ${esc(a.details?.resolution||a.details?.review_note||'Sin nota')}</small></div>`).join(''):'<p class="adm-empty">Todavía no hay acciones administrativas registradas.</p>'}`;
+  }
+
+  async function saveReport(id){
+    const status=document.getElementById('adm-report-status')?.value;
+    const resolution=document.getElementById('adm-report-resolution')?.value||'';
+    const {error}=await sb.rpc('comish_admin_review_report',{p_id:id,p_status:status,p_resolution:resolution});
+    if(error) return toast('No se pudo guardar: '+rpcError(error).slice(0,130));
+    toast('Decisión de denuncia guardada');state.selectedReport=null;await loadReports();
+  }
+  async function saveVerification(id){
+    const status=document.getElementById('adm-ver-status')?.value;
+    const note=document.getElementById('adm-ver-note')?.value||'';
+    const {error}=await sb.rpc('comish_admin_review_verification',{p_id:id,p_status:status,p_review_note:note});
+    if(error) return toast('No se pudo guardar: '+rpcError(error).slice(0,130));
+    toast(status==='approved'?'Artista verificado correctamente':'Decisión de verificación guardada');state.selectedVerification=null;await loadVerifications();
+  }
+
+  panel.addEventListener('click',async event=>{
+    const tab=event.target.closest('[data-adm-tab]');
+    if(tab){event.preventDefault();return setTab(tab.dataset.admTab);}
+    const action=event.target.closest('[data-adm]');
+    if(action){
+      const key=action.dataset.adm;
+      if(key==='close'){go('perfil');return;}
+      if(key==='refresh'||key==='reload-tab'){return loadTab();}
+      if(key==='clear-user'){state.selectedUser=null;return loadUsers();}
+      if(key==='clear-report'){state.selectedReport=null;return loadReports();}
+      if(key==='clear-verification'){state.selectedVerification=null;return loadVerifications();}
+      if(key==='save-report'){action.disabled=true;return saveReport(action.dataset.id);}
+      if(key==='save-verification'){action.disabled=true;return saveVerification(action.dataset.id);}
+    }
+    const user=event.target.closest('[data-adm-user]');
+    if(user){state.selectedUser=user.dataset.admUser;return content().innerHTML = content().innerHTML.replace(/<div class="adm-detail">[\s\S]*?<\/div>/,'') + renderUserDetail(state.selectedUser);}
+    const report=event.target.closest('[data-adm-report]');
+    if(report){state.selectedReport=report.dataset.admReport;return loadReports();}
+    const verification=event.target.closest('[data-adm-verification]');
+    if(verification){state.selectedVerification=verification.dataset.admVerification;return loadVerifications();}
+  });
+  panel.addEventListener('submit',event=>{
+    if(event.target.id==='adm-user-form'){event.preventDefault();state.selectedUser=null;loadUsers();}
+  });
+  sb.auth.onAuthStateChange((event,session)=>{if(['SIGNED_IN','SIGNED_OUT','TOKEN_REFRESHED','USER_UPDATED'].includes(event))setTimeout(()=>refreshAdminAccess(session),0);});
+  sb.auth.getSession().then(({data})=>refreshAdminAccess(data?.session||null)).catch(()=>{});
+
+  // Reemplaza las simulaciones locales de denuncias y verificaciones por registros reales en Supabase.
+  async function uploadEvidence(file,uid,folder){
+    if(!file)return null;
+    if(!file.type.startsWith('image/'))throw new Error('La evidencia debe ser una imagen.');
+    if(file.size>8*1024*1024)throw new Error('La imagen no puede superar 8 MB.');
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+    const path=`${uid}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const {error}=await sb.storage.from('comish-private-evidence').upload(path,file,{cacheControl:'3600',upsert:false});
+    if(error)throw error;
+    return path;
+  }
+
+  if(typeof ACT!=='undefined'){
+    ACT.send = async () => {
+      const raw=($('#ru')?.value||'').trim().replace(/^@/,'').toLowerCase();
+      const description=($('#rt')?.value||'').trim();
+      const reason=($('#rm')?.value||'').trim();
+      const file=$('#rf')?.files?.[0]||null;
+      if(!raw||!description)return toast('Indica el usuario denunciado y describe lo ocurrido.');
+      if(description.length>3000)return toast('La descripción es demasiado larga.');
+      const {data:user,error:userError}=await sb.auth.getUser();
+      if(userError||!user?.user)return toast('Inicia sesión para enviar una denuncia.');
+      const target=await sb.from('profiles').select('id,username').eq('username',raw).maybeSingle();
+      if(target.error)return toast('No se pudo buscar el perfil denunciado.');
+      if(!target.data)return toast('No encontramos @'+raw+'. Comprueba el nombre de usuario.');
+      if(target.data.id===user.user.id)return toast('No puedes denunciar tu propia cuenta.');
+      const btn=document.querySelector('#sh [data-a="send"]');if(btn){btn.disabled=true;btn.textContent='Enviando…';}
+      let path=null;
+      try{
+        path=await uploadEvidence(file,user.user.id,'reports');
+        const {error}=await sb.from('user_reports').insert({reporter_id:user.user.id,reported_user_id:target.data.id,reason,description,evidence_path:path,status:'pending'});
+        if(error)throw error;
+        D.reports.unshift({id:'cloud-'+Date.now(),w:RW,u:'@'+raw,m:reason,t:description,st:0,d:new Date().toLocaleDateString('es')});
+        X();toast('Denuncia enviada al equipo de Comish.');
+      }catch(error){
+        if(path)try{await sb.storage.from('comish-private-evidence').remove([path]);}catch(_e){}
+        if(btn){btn.disabled=false;btn.textContent='Enviar denuncia';}
+        toast('No se pudo enviar la denuncia: '+String(error?.message||error).slice(0,100));
+      }
+    };
+
+    ACT.ver = async () => {
+      const {data:user,error:userError}=await sb.auth.getUser();
+      if(userError||!user?.user)return toast('Inicia sesión para solicitar la verificación.');
+      const [profile,request]=await Promise.all([
+        sb.from('profiles').select('is_artist_verified').eq('id',user.user.id).maybeSingle(),
+        sb.from('artist_verification_requests').select('*').eq('user_id',user.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle()
+      ]);
+      if(profile.error)return toast('No se pudo consultar tu perfil.');
+      if(profile.data?.is_artist_verified){D.ver=2;M('<h3>Artista verificado ✓</h3><p class="cp">Tu insignia de verificación está activa en tu perfil.</p><button class="sx" data-a="x">Cerrar</button>');return;}
+      const v=request.data;
+      if(v&&['pending','needs_info'].includes(v.status)){
+        M('<h3>Verificación de artista</h3><p class="cp">'+(v.status==='pending'?'Tu solicitud está en revisión.':'El equipo necesita información adicional.')+'</p>'+(v.review_note?'<div class="box">'+esc(v.review_note)+'</div>':'')+'<button class="sx" data-a="x">Cerrar</button>');return;
+      }
+      M('<h3>Verificación de artista</h3><p class="cp">Comparte un enlace a tu portafolio o una imagen que ayude a comprobar la autoría de tus obras. El equipo revisará tu solicitud.</p>'+drop('vf','Subir prueba (imagen)')+'<label>Enlace a tu portafolio<input id="vl" class="f2" maxlength="500" placeholder="https://…"></label>'+(v&&v.status==='rejected'?'<div class="box">Tu solicitud anterior fue rechazada. Puedes enviar una nueva. '+esc(v.review_note||'')+'</div>':'')+'<button class="pb2" data-a="sendv">Solicitar verificación</button>'+can);
+    };
+
+    ACT.sendv = async () => {
+      const link=($('#vl')?.value||'').trim();
+      const file=$('#vf')?.files?.[0]||null;
+      if(!link&&!file)return toast('Sube una prueba o agrega el enlace a tu portafolio.');
+      if(link){try{const url=new URL(link);if(!['http:','https:'].includes(url.protocol))throw new Error();}catch(_e){return toast('Escribe un enlace válido que comience con https://');}}
+      const {data:user,error:userError}=await sb.auth.getUser();
+      if(userError||!user?.user)return toast('Inicia sesión para solicitar la verificación.');
+      const btn=document.querySelector('#sh [data-a="sendv"]');if(btn){btn.disabled=true;btn.textContent='Enviando…';}
+      let path=null;
+      try{
+        path=await uploadEvidence(file,user.user.id,'verification');
+        const {error}=await sb.from('artist_verification_requests').insert({user_id:user.user.id,portfolio_url:link,evidence_path:path,note:'',status:'pending'});
+        if(error)throw error;
+        D.ver=1;X();toast('Solicitud de verificación enviada.');
+      }catch(error){
+        if(path)try{await sb.storage.from('comish-private-evidence').remove([path]);}catch(_e){}
+        if(btn){btn.disabled=false;btn.textContent='Solicitar verificación';}
+        toast('No se pudo enviar la solicitud: '+String(error?.message||error).slice(0,100));
+      }
+    };
+  }
+})();
+
 </script>
 </body></html>
