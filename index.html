@@ -2663,7 +2663,8 @@ document.addEventListener('click',e=>{
 #app img,#app video{-webkit-user-drag:none}
 .art,.xg>div,.bk,.dim15,.au15 .im,#zv .zs,.pw15{position:relative}
 .art::after,.xg>div::after,.bk::after,.dim15::after,.au15 .im::after,#zv .zs::after,.pw15::after{content:'';position:absolute;inset:0;background:var(--wm,none) 0 0/200px 130px repeat;pointer-events:none;z-index:3;border-radius:inherit}
-.pw15{display:block;border-radius:12px;overflow:hidden;margin-bottom:6px}.pw15 img{display:block;margin-bottom:0!important}
+.pw15 img,.bk img,#zv .zs img{pointer-events:none}
+.pw15{display:block;border-radius:12px;overflow:hidden;margin-bottom:6px;cursor:zoom-in}.pw15 img{display:block;margin-bottom:0!important}
 html.pv-hide .art,html.pv-hide .xg>div,html.pv-hide .bk,html.pv-hide .dim15,html.pv-hide .au15 .im,html.pv-hide #zv .zs,html.pv-hide .pw15,html.pv-hide .zimg{filter:blur(34px) brightness(.5)!important}
 @media print{body *{display:none!important}body::before{content:'Contenido protegido por Comish';display:block;font:700 24px sans-serif;padding:40px}}
 </style>
@@ -2672,16 +2673,33 @@ html.pv-hide .art,html.pv-hide .xg>div,html.pv-hide .bk,html.pv-hide .dim15,html
 if(window.__f17)return;window.__f17=1;
 const sb=window.sb;if(!sb)return;
 const html=document.documentElement,app=document.getElementById('app');
-let UID=null,WM='';
+let UID=null;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-/* ---- 1) Marca de agua visible con el nombre de quien mira ---- */
-function setWM(){
-  const n=(typeof D!=='undefined'&&D.user&&D.user!=='usuario')?D.user:'';if(n===WM&&html.style.getPropertyValue('--wm'))return;WM=n;
+/* ---- 1) Marca de agua visible con el nombre del DUEÑO de cada obra ---- */
+const svgC={};
+const wmUrl=name=>{const n=String(name||'').replace(/^@/,'');if(svgC[n])return svgC[n];
   const t=(n?'@'+n+' · ':'')+'COMISH';
   const svg='<svg xmlns="http://www.w3.org/2000/svg" width="200" height="130"><text x="100" y="68" text-anchor="middle" transform="rotate(-28 100 65)" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#fff" fill-opacity=".42" stroke="#000" stroke-opacity=".3" stroke-width=".7" paint-order="stroke">'+esc(t)+'</text></svg>';
-  html.style.setProperty('--wm','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")')}
-setWM();setInterval(setWM,2000);
+  return svgC[n]='url("data:image/svg+xml,'+encodeURIComponent(svg)+'")'};
+const urlOf=el=>{const im=el.matches&&el.matches('img')?el:(el.querySelector&&el.querySelector('img'));if(im)return im.getAttribute('src')||'';
+  const m=(el.getAttribute&&el.getAttribute('style')||'').match(/url\(["']?([^"')]+)/);return m?m[1]:''};
+const meU=()=>(typeof D!=='undefined'&&D.user&&D.user!=='usuario')?'@'+D.user:'';
+function ownerFor(el){
+  if(el.matches('.art[data-id]')){const p=D.posts.find(x=>String(x.id)===el.dataset.id);if(p&&p.by)return p.by}
+  const u=urlOf(el);if(u){const p=D.posts.find(x=>x.u===u);if(p&&p.by)return p.by}
+  const sh=el.closest('#sh');
+  if(sh){const f=sh.querySelector('[data-q="fol"][data-u]')||sh.querySelector('[data-x="pf"][data-u]');if(f)return f.dataset.u}
+  const au=el.closest('.au15');if(au){const s=au.querySelector('.bd small'),m=s&&/de (@\S+)/.exec(s.textContent);if(m)return m[1]}
+  if(el.closest('#chat')){const mb=el.closest('.mb');if(mb&&mb.classList.contains('me'))return meU();const n=document.getElementById('chn');return n?n.textContent.trim():''}
+  if(el.closest('#perfil'))return meU();
+  return ''}
+function paintOwners(){
+  document.querySelectorAll('.art,.xg>div,.bk,.dim15,.au15 .im,.pw15').forEach(el=>{
+    if(el.dataset.own)return;const o=ownerFor(el);if(o)el.dataset.own=o;el.style.setProperty('--wm',wmUrl(o))})}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-own]');window.__own=t?t.dataset.own:''},true);
+{const zv=document.getElementById('zv');if(zv)new MutationObserver(()=>{if(!zv.classList.contains('on'))return;const zs=zv.querySelector('.zs'),im=zs&&zs.querySelector('img');
+  let o=window.__own||'';if(!o&&im){const p=D.posts.find(x=>x.u===im.getAttribute('src'));if(p)o=p.by}if(zs)zs.style.setProperty('--wm',wmUrl(o))}).observe(zv,{attributes:true,attributeFilter:['class']})}
 
 /* ---- 2) Sin menú contextual, sin arrastrar, sin atajos de guardar/inspeccionar/imprimir ---- */
 document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('input,textarea'))return;e.preventDefault()},true);
@@ -2707,7 +2725,11 @@ function fix(){
   app.querySelectorAll('img:not([data-pv]),video:not([data-pv])').forEach(i=>{
     i.dataset.pv=1;i.draggable=false;i.setAttribute('controlsList','nodownload noremoteplayback');i.setAttribute('disablePictureInPicture','');
     if(i.classList.contains('zimg')&&i.parentNode&&!i.parentNode.classList.contains('pw15')){const w=document.createElement('span');w.className='pw15';i.parentNode.insertBefore(w,i);w.appendChild(i)}})}
-let fp=false;new MutationObserver(()=>{if(fp)return;fp=true;requestAnimationFrame(()=>{fp=false;fix()})}).observe(app,{childList:true,subtree:true});fix();
+let fp=false;new MutationObserver(()=>{if(fp)return;fp=true;requestAnimationFrame(()=>{fp=false;fix();paintOwners()})}).observe(app,{childList:true,subtree:true});fix();paintOwners();
+
+let fwd=false;
+document.addEventListener('click',e=>{if(fwd)return;const w=e.target.closest&&e.target.closest('.pw15');if(!w)return;const im=w.querySelector('img.zimg');if(!im)return;
+  e.stopImmediatePropagation();e.preventDefault();fwd=true;try{im.click()}finally{fwd=false}},true);
 
 /* ---- 5) Copia pública suave + marca de agua incrustada ---- */
 const MAXS=900,Q=.5;
@@ -2727,8 +2749,8 @@ function protectedBlob(src,w0,h0,name){
   x.restore();
   return new Promise(res=>c.toBlob(res,'image/jpeg',Q))}
 const me=()=>(typeof D!=='undefined'?D.user:'');
-sb.auth.getSession().then(({data})=>{UID=data.session&&data.session.user?data.session.user.id:null;setWM()});
-sb.auth.onAuthStateChange((ev,s)=>{UID=s&&s.user?s.user.id:null;setWM()});
+sb.auth.getSession().then(({data})=>{UID=data.session&&data.session.user?data.session.user.id:null;paintOwners()});
+sb.auth.onAuthStateChange((ev,s)=>{UID=s&&s.user?s.user.id:null;paintOwners()});
 
 document.addEventListener('click',async e=>{
   if(!e.target.closest('[data-y="savepub"]'))return;
