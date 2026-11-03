@@ -2657,4 +2657,129 @@ document.addEventListener('click',e=>{
 })();
 
 </script>
+<!-- ===== v16: protección de imágenes (sin descargas fáciles, copias suaves con marca de agua, ocultar al capturar) ===== -->
+<style>
+#app img,#app video,.art,.xg>div,.bk,.dim15,.au15 .im,#zv .zs,.pw15{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app img,#app video{-webkit-user-drag:none}
+.art,.xg>div,.bk,.dim15,.au15 .im,#zv .zs,.pw15{position:relative}
+.art::after,.xg>div::after,.bk::after,.dim15::after,.au15 .im::after,#zv .zs::after,.pw15::after{content:'';position:absolute;inset:0;background:var(--wm,none) 0 0/200px 130px repeat;pointer-events:none;z-index:3;border-radius:inherit}
+.pw15{display:block;border-radius:12px;overflow:hidden;margin-bottom:6px}.pw15 img{display:block;margin-bottom:0!important}
+html.pv-hide .art,html.pv-hide .xg>div,html.pv-hide .bk,html.pv-hide .dim15,html.pv-hide .au15 .im,html.pv-hide #zv .zs,html.pv-hide .pw15,html.pv-hide .zimg{filter:blur(34px) brightness(.5)!important}
+@media print{body *{display:none!important}body::before{content:'Contenido protegido por Comish';display:block;font:700 24px sans-serif;padding:40px}}
+</style>
+<script>
+(()=>{
+if(window.__f17)return;window.__f17=1;
+const sb=window.sb;if(!sb)return;
+const html=document.documentElement,app=document.getElementById('app');
+let UID=null,WM='';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---- 1) Marca de agua visible con el nombre de quien mira ---- */
+function setWM(){
+  const n=(typeof D!=='undefined'&&D.user&&D.user!=='usuario')?D.user:'';if(n===WM&&html.style.getPropertyValue('--wm'))return;WM=n;
+  const t=(n?'@'+n+' · ':'')+'COMISH';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="200" height="130"><text x="100" y="68" text-anchor="middle" transform="rotate(-28 100 65)" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#fff" fill-opacity=".42" stroke="#000" stroke-opacity=".3" stroke-width=".7" paint-order="stroke">'+esc(t)+'</text></svg>';
+  html.style.setProperty('--wm','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")')}
+setWM();setInterval(setWM,2000);
+
+/* ---- 2) Sin menú contextual, sin arrastrar, sin atajos de guardar/inspeccionar/imprimir ---- */
+document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('input,textarea'))return;e.preventDefault()},true);
+document.addEventListener('dragstart',e=>{const t=e.target;if(t&&(t.tagName==='IMG'||t.tagName==='VIDEO'||(t.closest&&t.closest('.art,.xg,.bk,.pw15'))))e.preventDefault()},true);
+let ht=0;
+const hide=ms=>{html.classList.add('pv-hide');clearTimeout(ht);ht=setTimeout(()=>{if(document.hasFocus()&&!document.hidden)html.classList.remove('pv-hide')},ms||700)};
+const wipeClip=()=>{try{const p=navigator.clipboard.writeText('Contenido protegido por Comish');if(p&&p.catch)p.catch(()=>{})}catch(e){}};
+
+/* ---- 3) Ocultar las imágenes cuando se intenta capturar ---- */
+window.addEventListener('blur',()=>html.classList.add('pv-hide'));
+window.addEventListener('focus',()=>{clearTimeout(ht);ht=setTimeout(()=>html.classList.remove('pv-hide'),350)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)html.classList.add('pv-hide');else{clearTimeout(ht);ht=setTimeout(()=>html.classList.remove('pv-hide'),350)}});
+window.addEventListener('pagehide',()=>html.classList.add('pv-hide'));
+document.addEventListener('keydown',e=>{
+  const k=e.key,c=e.ctrlKey||e.metaKey;
+  if(k==='PrintScreen'||k==='Snapshot'){e.preventDefault();hide(1800);wipeClip();return}
+  if(k==='F12'||(c&&e.shiftKey&&/^[ijcs]$/i.test(k))||(c&&/^[spu]$/i.test(k))||(e.metaKey&&e.shiftKey&&/^[345]$/.test(k))||(e.metaKey&&e.shiftKey&&k.toLowerCase()==='s')){e.preventDefault();hide(1500)}
+},true);
+document.addEventListener('keyup',e=>{if(e.key==='PrintScreen'||e.key==='Snapshot'){hide(1800);wipeClip()}},true);
+
+/* ---- 4) Las <img> no se pueden arrastrar y las del chat llevan marca de agua ---- */
+function fix(){
+  app.querySelectorAll('img:not([data-pv]),video:not([data-pv])').forEach(i=>{
+    i.dataset.pv=1;i.draggable=false;i.setAttribute('controlsList','nodownload noremoteplayback');i.setAttribute('disablePictureInPicture','');
+    if(i.classList.contains('zimg')&&i.parentNode&&!i.parentNode.classList.contains('pw15')){const w=document.createElement('span');w.className='pw15';i.parentNode.insertBefore(w,i);w.appendChild(i)}})}
+let fp=false;new MutationObserver(()=>{if(fp)return;fp=true;requestAnimationFrame(()=>{fp=false;fix()})}).observe(app,{childList:true,subtree:true});fix();
+
+/* ---- 5) Copia pública suave + marca de agua incrustada ---- */
+const MAXS=900,Q=.5;
+const animFile=f=>/^(video\/|image\/gif|image\/webp)/.test(f.type);
+async function loadBmp(file){
+  if(window.createImageBitmap){try{return await createImageBitmap(file,{imageOrientation:'from-image'})}catch(e){}}
+  return await new Promise((res,rej)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=rej;i.src=u})}
+function protectedBlob(src,w0,h0,name){
+  const s=Math.min(1,MAXS/Math.max(w0,h0)),w=Math.max(1,Math.round(w0*s)),h=Math.max(1,Math.round(h0*s)),c=document.createElement('canvas');c.width=w;c.height=h;
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);
+  try{x.filter='blur(0.8px)'}catch(e){}x.drawImage(src,0,0,w,h);try{x.filter='none'}catch(e){}
+  const t='@'+(name||'comish')+' · COMISH',fs=Math.max(14,Math.round(Math.min(w,h)/18));
+  x.save();x.translate(w/2,h/2);x.rotate(-Math.PI/7);x.font='700 '+fs+'px Arial,sans-serif';x.textAlign='center';x.textBaseline='middle';
+  const tw=x.measureText(t).width,sx=tw+fs*2,sy=fs*4.2,d=Math.hypot(w,h),cols=Math.ceil(d/sx)+1,rows=Math.ceil(d/sy)+1;
+  x.lineWidth=Math.max(1,fs/12);x.strokeStyle='rgba(0,0,0,.3)';x.fillStyle='rgba(255,255,255,.45)';
+  for(let r=-rows;r<=rows;r++)for(let q=-cols;q<=cols;q++){const ox=q*sx+(Math.abs(r)%2?sx/2:0),oy=r*sy;x.strokeText(t,ox,oy);x.fillText(t,ox,oy)}
+  x.restore();
+  return new Promise(res=>c.toBlob(res,'image/jpeg',Q))}
+const me=()=>(typeof D!=='undefined'?D.user:'');
+sb.auth.getSession().then(({data})=>{UID=data.session&&data.session.user?data.session.user.id:null;setWM()});
+sb.auth.onAuthStateChange((ev,s)=>{UID=s&&s.user?s.user.id:null;setWM()});
+
+document.addEventListener('click',async e=>{
+  if(!e.target.closest('[data-y="savepub"]'))return;
+  const inp=document.getElementById('xf'),f=inp&&inp.files&&inp.files[0];
+  if(!f||!/^image\//.test(f.type)||animFile(f))return;          /* GIF y video los maneja la versión 15 */
+  e.stopImmediatePropagation();e.preventDefault();
+  if(!UID)return toast('Inicia sesión para publicar');
+  const t=(document.getElementById('xt').value||'').trim();if(!t)return toast('Escribe un título');
+  const tags=[...document.querySelectorAll('#sh [data-y="pk"].on')].map(s=>s.dataset.t),ex=((document.getElementById('xg')||{}).value||'').trim().toLowerCase().replace(/^#/,'');
+  if(ex&&tags.length<5&&!tags.includes(ex))tags.push(ex);
+  const btn=e.target.closest('[data-y="savepub"]');if(btn)btn.disabled=true;
+  toast('Protegiendo y subiendo…');
+  try{
+    const bmp=await loadBmp(f),blob=await protectedBlob(bmp,bmp.width,bmp.height,me()),stamp=Date.now();
+    /* original completo, en un espacio privado solo tuyo (si ya ejecutaste proteccion.sql) */
+    try{const o=await sb.storage.from('originals').upload(UID+'/'+stamp+'.'+((f.type.split('/')[1]||'jpg').replace('jpeg','jpg')),f,{contentType:f.type});if(o.error)console.warn('originals:',o.error.message)}catch(x){}
+    const path=UID+'/posts/'+stamp+'-p.jpg',up=await sb.storage.from('media').upload(path,blob,{contentType:'image/jpeg',cacheControl:'31536000'});
+    if(up.error)throw up.error;
+    const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl,ins=await sb.from('posts').insert({user_id:UID,title:t.slice(0,60),image_url:url,tags}).select().single();
+    if(ins.error)throw ins.error;
+    X();if(window.__loadFeed)await window.__loadFeed();R_();go('feed');toast('Publicado con protección')
+  }catch(er){if(btn)btn.disabled=false;toast('No se pudo publicar: '+String((er&&er.message)||er).slice(0,80))}
+},true);
+
+/* ---- 6) Proteger obras anteriores (guarda el original en privado y reemplaza la copia pública) ---- */
+async function migrate(){
+  if(!UID)return toast('Inicia sesión');
+  const r=await sb.from('posts').select('id,image_url,title').eq('user_id',UID);
+  const rows=(r.data||[]).filter(p=>p.image_url&&!/-p\.jpg(\?|$)/.test(p.image_url)&&!/\.(gif|webp|mp4|webm|mov)(\?|$)/i.test(p.image_url));
+  if(!rows.length)return toast('Todas tus obras ya están protegidas');
+  if(!confirm('Voy a proteger '+rows.length+' obra(s): guardo el original en tu espacio privado y dejo en público una versión más suave con marca de agua. ¿Continuar?'))return;
+  let ok=0,err='';
+  for(let i=0;i<rows.length;i++){const p=rows[i];toast('Protegiendo '+(i+1)+' de '+rows.length+'…');
+    try{
+      const orig=await (await fetch(p.image_url)).blob(),bmp=await loadBmp(orig),prot=await protectedBlob(bmp,bmp.width,bmp.height,me()),stamp=Date.now()+'-'+i;
+      const bk=await sb.storage.from('originals').upload(UID+'/'+stamp+'.jpg',orig,{contentType:orig.type||'image/jpeg'});
+      if(bk.error)throw new Error('No se pudo guardar el original privado (ejecuta proteccion.sql)');
+      const path=UID+'/posts/'+stamp+'-p.jpg',up=await sb.storage.from('media').upload(path,prot,{contentType:'image/jpeg',cacheControl:'31536000'});if(up.error)throw up.error;
+      const url=sb.storage.from('media').getPublicUrl(path).data.publicUrl,u=await sb.from('posts').update({image_url:url}).eq('id',p.id).eq('user_id',UID).select();
+      if(u.error||!(u.data||[]).length){await sb.storage.from('media').remove([path]);throw new Error('No se pudo actualizar la publicación (ejecuta proteccion.sql)')}
+      const j=p.image_url.indexOf('/media/');if(j>0)await sb.storage.from('media').remove([decodeURIComponent(p.image_url.slice(j+7).split('?')[0])]);
+      ok++}catch(er){err=String((er&&er.message)||er);break}}
+  if(window.__loadFeed)await window.__loadFeed();R_();
+  toast(err?('Protegidas '+ok+'. '+err.slice(0,70)):'Listo: '+ok+' obra(s) protegida(s)')}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-s="open"]');if(!b)return;setTimeout(()=>{
+  const sh=document.getElementById('sh');if(!sh||sh.querySelector('[data-v17="migrate"]'))return;
+  const h=[...sh.querySelectorAll('.sg')].find(x=>x.textContent.trim()==='Privacidad');if(!h)return;
+  const r=document.createElement('button');r.type='button';r.className='row2';r.dataset.v17='migrate';
+  r.innerHTML='<b>🔒 Proteger mis obras anteriores</b><span>Versión pública suave con marca de agua; el original queda en privado</span>';h.after(r)},0)});
+app.addEventListener('click',e=>{if(e.target.closest('[data-v17="migrate"]')){e.stopPropagation();X();migrate()}});
+})();
+</script>
+
 </body></html>
